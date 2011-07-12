@@ -1,7 +1,5 @@
 #!/bin/bash
 
-#ps uaxf
-
 # for cygwin
 ps -e|awk '
   function slice(str,start,end){
@@ -45,9 +43,9 @@ ps -e|awk '
       output_process(data_proc[iProc,"L",_i],head2 " \\_ ",head2 (_i+1==_iN?"    ":" |  "));
   }
 
-  /^\s*PID/{
-    print
-    next
+  /^[[:space:]]*PID/{
+    print;
+    next;
   }
 
   {register_process($0);}
