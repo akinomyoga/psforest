@@ -20,17 +20,10 @@ ps -A -o ppid,user,pid,pcpu,pmem,vsize,tty,stat,start,time,args|gawk '
     # sample: Mac OS X
     #----------------------------------------------------------------------
     # PPID USER       PID  %CPU %MEM      VSZ TTY      STAT STARTED      TIME ARGS
-    #    0 root         1   0.0  0.0  2475324 ??       Ss    4:30AM   1:13.29 /sbin/launchd
-    #    1 root        28   0.0  0.0  2466708 ??       Ss    4:30AM   0:02.28 /usr/libexec/kextd
-    #    1 root        29   4.3  0.1  2474748 ??       Ss    4:30AM   6:31.52 /usr/sbin/DirectoryService
-    #    1 root        30   0.0  0.0  2462972 ??       Ss    4:30AM   0:15.59 /usr/sbin/notifyd
-    #    1 root        31   0.0  0.0  2466264 ??       Ss    4:30AM   0:00.38 /usr/sbin/diskarbitrationd
-    #    1 root        32   0.0  0.0  2475528 ??       Ss    4:30AM   0:15.91 /usr/sbin/syslogd
     #    1 root        33   0.0  0.0  2483636 ??       Ss    4:30AM   0:54.63 /usr/libexec/configd
     #    1 daemon      34   0.0  0.0  2467140 ??       Ss    4:30AM   0:01.39 /usr/sbin/distnoted
     #    1 _mdnsresponder    35   0.0  0.0  2477544 ??       Ss    4:30AM   0:03.95 /usr/sbin/mDNSResponder -launchd
     #    1 root        43   0.0  0.0  2464112 ??       Ss    4:30AM   0:00.38 /usr/sbin/securityd -i
-    #    1 root        51   0.0  0.0  2435208 ??       Ss    4:30AM   0:03.77 /usr/sbin/ntpd -c /private/etc/ntp-restrict.conf -n -g -p /var/r
     #    1 _clamav     52   0.0  0.0  2435956 ??       Ss    4:30AM   0:00.55 freshclam -d -c 4
     #----------------------------------------------------------------------
     #0         1         2         3         4         5         6         7

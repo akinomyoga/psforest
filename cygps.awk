@@ -1,5 +1,8 @@
 #!/bin/gawk -f
 
+function max(a,b){
+  return a>b?a:b;
+}
 function slice(str,start,end){
   if(end=="")
     return substr(str,start+1);
@@ -12,7 +15,19 @@ function trim(str){
 }
 
 BEGIN{
+  txt_empty="                                                        ";
+  #SCREEN_WIDTH=200
+  SCREEN_WIDTH=200;
+  if(ENVIRON["COLUMNS"]!=""){
+    SCREEN_WIDTH=max(80,or(0,ENVIRON["COLUMNS"]));
+  }
   iData=0;
+
+  ofs_ppid0=9;
+  ofs_ppidN=17;
+  ofs_winpid0=25;
+  ofs_winpidN=36;
+  ofs_command=56;
 }
 
 #-------------------------------------------------------------------------------
@@ -63,11 +78,11 @@ function register_process(line, _pid,_ppid,_stat,_cmd){
   #0         1         2         3         4         5         6
   #0123456789012345678901234567890123456789012345678901234567890123456789
   #----------------------------------------------------------------------
-  data_proc[iData,"i"]=trim(slice(line,1,9));   # PID
-  data_proc[iData,"p"]=trim(slice(line,9,17));  # PPID
-  data_proc[iData,"w"]=trim(slice(line,25,36)); # WINPID
-  data_proc[iData,"s"]=slice(line,0,56);        # PID-STIME
-  data_proc[iData,"c"]=slice(line,56);          # COMMAND
+  data_proc[iData,"i"]=trim(slice(line,1,ofs_ppid0));             # PID
+  data_proc[iData,"p"]=trim(slice(line,ofs_ppid0  ,ofs_ppidN  )); # PPID
+  data_proc[iData,"w"]=trim(slice(line,ofs_winpid0,ofs_winpidN)); # WINPID
+  data_proc[iData,"s"]=slice(line,0,ofs_command);                 # PID-STIME
+  data_proc[iData,"c"]=slice(line,ofs_command);                   # COMMAND
   data_proc[iData,"N"]=0;
   dict_proc[data_proc[iData,"i"]]=iData;
   iData++;
@@ -79,7 +94,7 @@ function construct_tree( _i,_ppid,_pid,_iP){
 
     # get ppid
     _ppid=data_proc[_i,"p"];
-    if(_ppid=="0")
+    if(_ppid=="0"||_ppid=="1")
       _ppid=data_wmic[_pid,"p"];
     if(_ppid==_pid)continue;
 
@@ -91,20 +106,49 @@ function construct_tree( _i,_ppid,_pid,_iP){
   }
 }
 
-function output_process(iProc,head,head2, _cmd,_args,_i,_iN){
+function output_process(iProc,head,head2, _cmd,_args,_i,_iN,_line,_txtbr){
   _cmd=data_proc[iProc,"c"];
   if(_cmd ~ /[^\\]$/)gsub(/^.+\\/,"",_cmd);
   _args=data_wmic[data_proc[iProc,"w"],"a"];
-  print substr(data_proc[iProc,"s"] head _cmd _args,1,200)
-
+  _line=data_proc[iProc,"s"] head _cmd _args;
   _iN=data_proc[iProc,"N"];
+
+  print substr(_line,1,SCREEN_WIDTH);
+  if(length(_line)>SCREEN_WIDTH){
+    _txtbr=_iN==0?"  ":" |  ";
+    _txtbr=substr(txt_empty head2 _txtbr,1,SCREEN_WIDTH-40)
+    do{
+      _line=_txtbr substr(_line,SCREEN_WIDTH+1);
+      print substr(_line,1,SCREEN_WIDTH);
+    }while(length(_line)>SCREEN_WIDTH);
+  }
+
   for(_i=0;_i<_iN;_i++)
     output_process(data_proc[iProc,"L",_i],head2 " \\_ ",head2 (_i+1==_iN?"    ":" |  "));
 }
 
 
+function indexof_or(text,needle,def ,_i){
+  _i=index(text,needle)-1;
+  if(_i<0)return def;
+  return _i;
+}
+
 /^[[:space:]]*PID/{
   print;
+
+  if($0 ~ /COMMAND/){
+    txt_empty=$0;
+    sub(/COMMAND.*$/,"",txt_empty);
+    gsub(/./," ",txt_empty);
+  }
+
+  ofs_ppid0=indexof_or($0,"PID",6)+3;
+  ofs_ppidN=indexof_or($0,"PPID",13)+4;
+  ofs_winpid0=indexof_or($0,"PGID",21)+4;
+  ofs_winpidN=indexof_or($0,"WINPID",30)+6;
+  ofs_command=indexof_or($0,"COMMAND",56);
+
   next;
 }
 
