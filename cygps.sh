@@ -11,4 +11,5 @@ cd /tmp
   else
     ps -e
   fi
+  ls -1d /proc/*/root/
 } | gawk -f $HOME/.mwg/mcygex/bin/cygps.awk

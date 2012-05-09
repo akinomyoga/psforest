@@ -18,9 +18,8 @@ BEGIN{
   txt_empty="                                                        ";
   #SCREEN_WIDTH=200
   SCREEN_WIDTH=200;
-  if(ENVIRON["COLUMNS"]!=""){
-    SCREEN_WIDTH=max(80,or(0,ENVIRON["COLUMNS"]));
-  }
+  if(ENVIRON["COLUMNS"]!="")
+    SCREEN_WIDTH=max(80,or(0,ENVIRON["COLUMNS"]))-1;
   iData=0;
 
   ofs_ppid0=9;
@@ -30,6 +29,10 @@ BEGIN{
   ofs_command=56;
 
   fCHKDEFUNCT=0;
+
+  ti_dim="\33[2m";if(ENVIRON["TERM"]=="rosaterm")ti_dim="\33[9m";
+  ti_gray="\33[37m"
+  ti_sgr0="\33[m"
 }
 
 #-------------------------------------------------------------------------------
@@ -70,6 +73,9 @@ BEGIN{
   next;
 }
 
+/^\/proc\/.+\/root\/$/{
+  next;
+}
 #-------------------------------------------------------------------------------
 # read ps outputs
 
@@ -130,7 +136,7 @@ function output_process(iProc,head,head2, _cmd,_args,_i,_iN,_line,_txtbr){
   _iN=data_proc[iProc,"N"];
 
   if(data_proc[iProc,"<defunct>"])
-    printf("\33[2m");
+    printf(ti_dim ti_gray);
 
   print substr(_line,1,SCREEN_WIDTH);
   if(length(_line)>SCREEN_WIDTH){
@@ -143,7 +149,7 @@ function output_process(iProc,head,head2, _cmd,_args,_i,_iN,_line,_txtbr){
   }
 
   if(data_proc[iProc,"<defunct>"])
-    printf("\33[0m");
+    printf(ti_sgr0);
 
   for(_i=0;_i<_iN;_i++)
     output_process(data_proc[iProc,"L",_i],head2 " \\_ ",head2 (_i+1==_iN?"    ":" |  "));
