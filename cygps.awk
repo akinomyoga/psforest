@@ -28,6 +28,8 @@ BEGIN{
   ofs_winpid0=25;
   ofs_winpidN=36;
   ofs_command=56;
+
+  fCHKDEFUNCT=0;
 }
 
 #-------------------------------------------------------------------------------
@@ -55,6 +57,16 @@ BEGIN{
 }
 
 /^[[:space:]]*$/{
+  next;
+}
+
+#-------------------------------------------------------------------------------
+# read ls outputs
+
+/^\/proc\/[0-9]+\/root\/$/{
+  fCHKDEFUNCT=1;
+  gsub(/^\/proc\/|\/root\/$/,"");
+  data_wmic[$0,"D"]=1;
   next;
 }
 
@@ -91,9 +103,13 @@ function register_process(line, _pid,_ppid,_stat,_cmd){
 function construct_tree( _i,_ppid,_pid,_iP){
   for(_i=0;_i<iData;_i++){
     _pid=data_proc[_i,"i"];
-
-    # get ppid
     _ppid=data_proc[_i,"p"];
+
+    # check if it is <defunct>
+    if(fCHKDEFUNCT&&_ppid!="0"&&!data_wmic[_pid,"D"])
+      data_proc[_i,"<defunct>"]=1;
+
+    # resolve ppid
     if(_ppid=="0"||_ppid=="1")
       _ppid=data_wmic[_pid,"p"];
     if(_ppid==_pid)continue;
@@ -113,6 +129,9 @@ function output_process(iProc,head,head2, _cmd,_args,_i,_iN,_line,_txtbr){
   _line=data_proc[iProc,"s"] head _cmd _args;
   _iN=data_proc[iProc,"N"];
 
+  if(data_proc[iProc,"<defunct>"])
+    printf("\33[2m");
+
   print substr(_line,1,SCREEN_WIDTH);
   if(length(_line)>SCREEN_WIDTH){
     _txtbr=_iN==0?"  ":" |  ";
@@ -122,6 +141,9 @@ function output_process(iProc,head,head2, _cmd,_args,_i,_iN,_line,_txtbr){
       print substr(_line,1,SCREEN_WIDTH);
     }while(length(_line)>SCREEN_WIDTH);
   }
+
+  if(data_proc[iProc,"<defunct>"])
+    printf("\33[0m");
 
   for(_i=0;_i<_iN;_i++)
     output_process(data_proc[iProc,"L",_i],head2 " \\_ ",head2 (_i+1==_iN?"    ":" |  "));
