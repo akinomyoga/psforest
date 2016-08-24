@@ -15,22 +15,48 @@ function trim(str){
 }
 
 BEGIN{
-  mode="cygps";
-  sys=="cygwin";
+  mode="pass";
+  flagLineColor = 1;
+  flagLineWrapping = 1;
 
-  txt_empty="                                                        ";
   SCREEN_WIDTH=80;
   if(ENVIRON["COLUMNS"]!="")
     SCREEN_WIDTH=max(80,or(0,ENVIRON["COLUMNS"]))-1;
+
   iData=0;
 
   initialize_cygps();
 
   fCHKDEFUNCT=0;
-
   ti_dim="\33[2m";if(ENVIRON["TERM"]=="rosaterm")ti_dim="\33[9m";
-  ti_gray="\33[37m"
-  ti_sgr0="\33[m"
+  ti_gray="\33[37m";
+  ti_sgr0="\33[m";
+
+  if(flagLineWrapping){
+    txt_indent="                                                        ";
+  }
+
+  if(flagLineColor){
+    ti_smhead="\33[1;48;5;239;38;5;231m";
+    ti_rmhead="\33[m";
+    # ti_smodd="\33[48;5;189m";
+    ti_smodd="\33[48;5;254m";
+    ti_rmodd="\33[49m";
+
+    txt_fill_length=4;
+    txt_fill="    ";
+    while(txt_fill_length<SCREEN_WIDTH){
+      txt_fill=txt_fill txt_fill;
+      txt_fill_length*=2;
+    }
+    txt_fill=slice(txt_fill,0,SCREEN_WIDTH);
+  }else{
+    ti_smhead="";
+    ti_rmhead="";
+    ti_smodd="";
+    ti_rmodd="";
+    txt_fill="";
+  }
 }
 
 /^psforest: mode=/{
@@ -104,12 +130,12 @@ function indexof_or(text,needle,def ,_i){
 }
 
 mode=="cygps" && /^[[:space:]]*PID/ {
-  print;
+  output_header($0);
 
-  if($0 ~ /COMMAND/){
-    txt_empty=$0;
-    sub(/COMMAND.*$/,"",txt_empty);
-    gsub(/./," ",txt_empty);
+  if(flagLineWrapping && $0 ~ /COMMAND/){
+    txt_indent=$0;
+    sub(/COMMAND.*$/,"",txt_indent);
+    gsub(/./," ",txt_indent);
   }
 
   ofs_ppid0=indexof_or($0,"PID",6)+3;
@@ -117,7 +143,6 @@ mode=="cygps" && /^[[:space:]]*PID/ {
   ofs_winpid0=indexof_or($0,"PGID",21)+4;
   ofs_winpidN=indexof_or($0,"WINPID",30)+6;
   ofs_command=indexof_or($0,"COMMAND",56);
-
   next;
 }
 
@@ -148,7 +173,7 @@ function register_process(line, _pid,_ppid,_stat,_cmd){
   iData++;
 }
 
-mode=="cygps" {register_process($0);}
+mode=="cygps" {register_process($0);next;}
 
 #-------------------------------------------------------------------------------
 # read ps outputs for mac
@@ -159,8 +184,8 @@ function initialize_macps(){
 
 mode=="macps" && /^[[:space:]]*PPID/{
   iColumnOfUser=index($0,"USER")-1;
-  print substr($0,iColumnOfUser+1);
-  next
+  output_header(substr($0,iColumnOfUser+1));
+  next;
 }
 
 mode=="macps" && /^[[:space:]]*$/{next}
@@ -190,7 +215,7 @@ function register_process_mac(line, _pid,_ppid,_stat,_cmd,_arr,_iC0){
   iData++;
 }
 
-mode=="macps" {register_process_mac($0);}
+mode=="macps" {register_process_mac($0);next;}
 
 #-------------------------------------------------------------------------------
 # read ps outputs for aix
@@ -201,8 +226,8 @@ function initialize_aixps(){
 
 mode=="aixps" && /^[[:space:]]*PPID/{
   iColumnOfUser=index($0,"PPID")+4;
-  print substr($0,iColumnOfUser+1);
-  next
+  output_header(substr($0,iColumnOfUser+1));
+  next;
 }
 
 mode=="aixps" && /^[[:space:]]*$/{next}
@@ -230,7 +255,7 @@ function register_process_aix(line, _pid,_ppid,_stat,_cmd){
   iData++;
 }
 
-mode=="aixps" {register_process_aix($0);}
+mode=="aixps" {register_process_aix($0);next;}
 
 #-------------------------------------------------------------------------------
 
@@ -256,6 +281,13 @@ function construct_tree( _i,_ppid,_pid,_iP){
   }
 }
 
+function output_header(line){
+  if(flagLineColor)
+    print ti_smhead substr(line txt_fill,1,SCREEN_WIDTH) ti_rmhead;
+  else
+    print line;
+}
+
 function output_process(iProc,head,head2, _cmd,_args,_i,_iN,_line,_txtbr){
   _cmd=data_proc[iProc,"c"];
   if(_cmd ~ /[^\\]$/)gsub(/^.+\\/,"",_cmd);
@@ -263,29 +295,38 @@ function output_process(iProc,head,head2, _cmd,_args,_i,_iN,_line,_txtbr){
   _line=data_proc[iProc,"s"] head _cmd _args;
   _iN=data_proc[iProc,"N"];
 
+  if(flagLineColor && outputProcessCount%2==1)
+    printf("%s",ti_smodd);
   if(data_proc[iProc,"<defunct>"])
     printf(ti_dim ti_gray);
 
-  print substr(_line,1,SCREEN_WIDTH);
-  if(length(_line)>SCREEN_WIDTH){
+  print substr(_line txt_fill,1,SCREEN_WIDTH);
+  if(flagLineWrapping && length(_line)>SCREEN_WIDTH){
     _txtbr=_iN==0?"  ":" |  ";
-    _txtbr=substr(txt_empty head2 _txtbr,1,SCREEN_WIDTH-40)
+    _txtbr=substr(txt_indent head2 _txtbr,1,SCREEN_WIDTH-40)
     do{
       _line=_txtbr substr(_line,SCREEN_WIDTH+1);
-      print substr(_line,1,SCREEN_WIDTH);
+      print substr(_line txt_fill,1,SCREEN_WIDTH);
     }while(length(_line)>SCREEN_WIDTH);
   }
 
   if(data_proc[iProc,"<defunct>"])
     printf(ti_sgr0);
 
+  if(flagLineColor && outputProcessCount%2==1)
+    printf("%s",ti_rmodd);
+  outputProcessCount++;
+
   for(_i=0;_i<_iN;_i++)
     output_process(data_proc[iProc,"L",_i],head2 " \\_ ",head2 " " (_i+1==_iN?"   ":"|  "));
 }
 
+mode=="pass"{print;}
+
 END{
   construct_tree();
 
+  outputProcessCount=0;
   for(i=0;i<iData;i++){
     p=data_proc[i,"p"];
     if(data_proc[i,"HAS_PPID"])continue;

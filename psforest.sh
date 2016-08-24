@@ -26,5 +26,7 @@
   elif [[ $OSTYPE == aix* ]]; then
     echo "psforest: mode=aixps"
     ps -A -o ppid,user,pid,pcpu,pmem,vsize,tty,stat,start,time,args
+  else
+    ps uaxf
   fi
 } | gawk -f %share%/psforest.awk
