@@ -1,20 +1,30 @@
-# Makefile
+# -*- mode: makefile-gmake -*-
 
-MWGDIR=~/.mwg
-BINDIR=~/bin
-
-.PHONY: all pack install
+.PHONY: all
 all:
 
-install: $(MWGDIR) $(BINDIR) $(MWGDIR)/mwg.cygps.awk $(BINDIR)/p
-$(MWGDIR):
-	test -d $@ || mkdir $@
-$(BINDIR):
-	test -d $@ || mkdir $@
-$(MWGDIR)/mwg.cygps.awk: cygps.awk
-	cp -p $< $@
-$(BINDIR)/p: cygps.sh
-	cp -p $< $@
+ifeq ($(PREFIX),)
+  PREFIX=$(HOME)/.mwg
+endif
+BINDIR:=$(PREFIX)/bin
+SHARE:=$(PREFIX)/share/cygps
+directories:= $(BINDIR) $(SHARE)
 
-pack:
-	cd .. && tar cavf mwg.cygps-src.tlz --exclude='*~' --exclude='*/backup/*' mwg.cygps-src
+.PHONY: install
+install: $(SHARE)/cygps.awk $(BINDIR)/cygps
+$(SHARE)/cygps.awk: cygps.awk | $(SHARE)
+	cp -p $< $@
+$(BINDIR)/cygps: cygps.sh | $(BINDIR)
+	sed 's|%share%|$(SHARE)|' $< > $@
+
+.PHONY: dist
+dist:
+	DIR="$${PWD##*/}"; cd ..; tar cavf "$$DIR/dist/cygps.$$(date +'%Y%m%d').tar.xz" \
+		--exclude='*~' --exclude='backup' \
+		--exclude="./$${DIR}/dist" \
+		--exclude="./$${DIR}/.git" \
+		--exclude='*.exe' --exclude='*.obj' --exclude='*.o' \
+		"./$${DIR}"
+
+$(directories):
+	mkdir -p $@
