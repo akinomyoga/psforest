@@ -16,8 +16,8 @@ function trim(str){
 
 BEGIN{
   mode="pass";
-  flagLineColor = 1;
-  flagLineWrapping = 1;
+  flagLineColor = ENVIRON["flagLineColor"];
+  flagLineWrapping = ENVIRON["flagLineWrapping"];
 
   SCREEN_WIDTH=80;
   if(ENVIRON["COLUMNS"]!="")
