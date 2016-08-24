@@ -9,6 +9,7 @@ fields=
 # read command line arguments
 
 fHelp=
+fError=
 while (($#)); do
   arg="$1"; shift
   case "$arg" in
@@ -26,13 +27,13 @@ while (($#)); do
     flagLineWrapping=${arg#*=} ;;
   (--help)
     fHelp=1 ;;
-  (--?*) echo "psforest: unrecognized option $arg" >&2 ;;
+  (--?*) fError=1; echo "psforest: unrecognized option $arg" >&2 ;;
   (-?*)
     arg=${arg:1}
     while [[ $arg ]]; do
       o=${arg::1}
       case "$o" in
-      (*) echo "psforest: unrecognized option -$o" >&2 ;;
+      (*) fError=1; echo "psforest: unrecognized option -$o" >&2 ;;
       esac
       arg=${arg:1}
     done ;;
@@ -55,6 +56,10 @@ if [[ $flagLineWrapping == auto ]]; then
   else
     flagLineWrapping=
   fi
+fi
+
+if [[ $fError ]]; then
+  exit 1
 fi
 
 if [[ $fHelp ]]; then
