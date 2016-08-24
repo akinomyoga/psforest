@@ -7,19 +7,19 @@ ifeq ($(PREFIX),)
   PREFIX=$(HOME)/.mwg
 endif
 BINDIR:=$(PREFIX)/bin
-SHARE:=$(PREFIX)/share/cygps
+SHARE:=$(PREFIX)/share/psforest
 directories:= $(BINDIR) $(SHARE)
 
 .PHONY: install
-install: $(SHARE)/cygps.awk $(BINDIR)/cygps
-$(SHARE)/cygps.awk: cygps.awk | $(SHARE)
+install: $(SHARE)/psforest.awk $(BINDIR)/psforest
+$(SHARE)/psforest.awk: psforest.awk | $(SHARE)
 	cp -p $< $@
-$(BINDIR)/cygps: cygps.sh | $(BINDIR)
+$(BINDIR)/psforest: psforest.sh | $(BINDIR)
 	sed 's|%share%|$(SHARE)|' $< > $@
 
 .PHONY: dist
 dist:
-	DIR="$${PWD##*/}"; cd ..; tar cavf "$$DIR/dist/cygps.$$(date +'%Y%m%d').tar.xz" \
+	DIR="$${PWD##*/}"; cd ..; tar cavf "$$DIR/dist/psforest.$$(date +'%Y%m%d').tar.xz" \
 		--exclude='*~' --exclude='backup' \
 		--exclude="./$${DIR}/dist" \
 		--exclude="./$${DIR}/.git" \

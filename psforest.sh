@@ -12,4 +12,4 @@ cd /tmp
     ps -e
   fi
   #ls -1d /proc/*/root/
-} | gawk -f %share%/cygps.awk
+} | gawk -f %share%/psforest.awk
