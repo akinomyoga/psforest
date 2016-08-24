@@ -15,7 +15,7 @@ function trim(str){
 }
 
 BEGIN{
-  mode="cyg.ps";
+  mode="cygps";
   sys=="cygwin";
 
   txt_empty="                                                        ";
@@ -36,6 +36,11 @@ BEGIN{
 /^psforest: mode=/{
   sub(/^psforest: mode=/,"");
   mode=$0;
+  if(mode=="cygps"){
+    initialize_cygps();
+  }else if(mode=="macps"){
+    initialize_macps();
+  }
   next
 }
 
@@ -82,7 +87,7 @@ mode=="ls" && /^\/proc\/.+\/root\/$/{
 }
 
 #-------------------------------------------------------------------------------
-# read ps outputs
+# read ps outputs for cygwin
 
 function initialize_cygps(){
   ofs_ppid0=9;
@@ -98,7 +103,7 @@ function indexof_or(text,needle,def ,_i){
   return _i;
 }
 
-mode=="cyg.ps" && /^[[:space:]]*PID/ {
+mode=="cygps" && /^[[:space:]]*PID/ {
   print;
 
   if($0 ~ /COMMAND/){
@@ -143,7 +148,89 @@ function register_process(line, _pid,_ppid,_stat,_cmd){
   iData++;
 }
 
-mode=="cyg.ps" {register_process($0);}
+mode=="cygps" {register_process($0);}
+
+#-------------------------------------------------------------------------------
+# read ps outputs for mac
+
+function initialize_macps(){
+  iColumnOfUser=6;
+}
+
+mode=="macps" && /^[[:space:]]*PPID/{
+  iColumnOfUser=index($0,"USER")-1;
+  print substr($0,iColumnOfUser+1);
+  next
+}
+
+mode=="macps" && /^[[:space:]]*$/{next}
+
+function register_process_mac(line, _pid,_ppid,_stat,_cmd,_arr,_iC0){
+  #----------------------------------------------------------------------
+  # sample: Mac OS X
+  #----------------------------------------------------------------------
+  # PPID USER       PID  %CPU %MEM      VSZ TTY      STAT STARTED      TIME ARGS
+  #    1 root        33   0.0  0.0  2483636 ??       Ss    4:30AM   0:54.63 /usr/libexec/configd
+  #    1 daemon      34   0.0  0.0  2467140 ??       Ss    4:30AM   0:01.39 /usr/sbin/distnoted
+  #    1 _mdnsresponder    35   0.0  0.0  2477544 ??       Ss    4:30AM   0:03.95 /usr/sbin/mDNSResponder -launchd
+  #    1 root        43   0.0  0.0  2464112 ??       Ss    4:30AM   0:00.38 /usr/sbin/securityd -i
+  #    1 _clamav     52   0.0  0.0  2435956 ??       Ss    4:30AM   0:00.55 freshclam -d -c 4
+  #----------------------------------------------------------------------
+  #0         1         2         3         4         5         6         7
+  #01234567890123456789012345678901234567890123456789012345678901234567890123456789
+  #----------------------------------------------------------------------
+  split(line,_arr);
+  _iC0=index(line,_arr[10])+length(_arr[10]);if(_iC0<0)iC0=73;
+  data_proc[iData,"i"]=_arr[3];  # PID
+  data_proc[iData,"p"]=_arr[1];  # PPID
+  data_proc[iData,"s"]=slice(line,iColumnOfUser,_iC0);         # PID-STIME
+  data_proc[iData,"c"]=slice(line,_iC0);           # COMMAND
+  data_proc[iData,"N"]=0;
+  dict_proc[data_proc[iData,"i"]]=iData;
+  iData++;
+}
+
+mode=="macps" {register_process_mac($0);}
+
+#-------------------------------------------------------------------------------
+# read ps outputs for aix
+
+function initialize_aixps(){
+  iColumnOfUser=9;
+}
+
+mode=="aixps" && /^[[:space:]]*PPID/{
+  iColumnOfUser=index($0,"PPID")+4;
+  print substr($0,iColumnOfUser+1);
+  next
+}
+
+mode=="aixps" && /^[[:space:]]*$/{next}
+
+function register_process_aix(line, _pid,_ppid,_stat,_cmd){
+  #----------------------------------------------------------------------
+  #  sample: AIX
+  #----------------------------------------------------------------------
+  #   PPID     USER     PID  %CPU  %MEM   VSZ     TT S  STARTED        TIME COMMAND
+  #2818312  kmurase 3145874   0.0   0.0   420  pts/4 A 04:08:31    00:00:00 /bin/bash /sr
+  #      1  kmurase 3408008   0.0   0.0  2900      - A 23:50:31    00:00:00 SCREEN
+  #2818312  kmurase 3735594   0.0   0.0   768  pts/4 A 04:39:15    00:00:00 ps -u kmurase
+  #4063924  kmurase 5243088   0.0   0.0   568      - A 03:37:53    00:00:00 /usr/sbin/sft
+  #3408008  kmurase 5439566   0.0   0.0   756  pts/3 A 23:50:31    00:00:00 /bin/bash
+  #----------------------------------------------------------------------
+  #0         1         2         3         4         5         6         7
+  #01234567890123456789012345678901234567890123456789012345678901234567890123456789
+  #----------------------------------------------------------------------
+  data_proc[iData,"i"]=trim(slice(line,17,24));  # PID
+  data_proc[iData,"p"]=trim(slice(line,0,7));    # PPID
+  data_proc[iData,"s"]=slice(line,9,73);         # PID-STIME
+  data_proc[iData,"c"]=slice(line,73);           # COMMAND
+  data_proc[iData,"N"]=0;
+  dict_proc[data_proc[iData,"i"]]=iData;
+  iData++;
+}
+
+mode=="aixps" {register_process_aix($0);}
 
 #-------------------------------------------------------------------------------
 
