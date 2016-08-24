@@ -1,4 +1,4 @@
-// ƒTƒ“ƒvƒ‹ from http://blog.goo.ne.jp/masaki_goo_2006/e/649b4637b28d8fff98b08aee26ab20e8
+// ã‚µãƒ³ãƒ—ãƒ« from http://blog.goo.ne.jp/masaki_goo_2006/e/649b4637b28d8fff98b08aee26ab20e8
 
 #include <cstdio>
 #include <string>
@@ -6,31 +6,31 @@
 #include <tlhelp32.h>
 
 /*
-c      cmd          Àsƒtƒ@ƒCƒ‹‚Ì’Z‚¢–¼‘O
-C      pcpu         cpu g—p—¦
-f      flags        ƒtƒ‰ƒO (’·‚¢Œ`®‚Ì F ƒtƒB[ƒ‹ƒh‚Ì‘®)
-g      pgrp         ƒvƒƒZƒX‚ÌƒOƒ‹[ƒv ID
-G      tpgid        §Œä’[––ƒvƒƒZƒXƒOƒ‹[ƒv ID
-j      cutime       —İÏ‚µ‚½ƒ†[ƒU[ŠÔ
-J      cstime       —İÏ‚µ‚½ƒVƒXƒeƒ€ŠÔ
-k      utime        ƒ†[ƒU[ŠÔ
-m      min_flt      ƒ}ƒCƒi[ƒy[ƒWƒtƒHƒ‹ƒg‚Ì‰ñ”
-M      maj_flt      ƒƒWƒƒ[ƒy[ƒWƒtƒHƒ‹ƒg‚Ì‰ñ”
-n      cmin_flt     ƒ}ƒCƒi[ƒy[ƒWƒtƒHƒ‹ƒg‚Ì—İÏ”
-N      cmaj_flt     ƒ}ƒCƒi[ƒy[ƒWƒtƒHƒ‹ƒg‚Ì—İÏ”
-o      session      ƒZƒbƒVƒ‡ƒ“ ID
-p      pid          ƒvƒƒZƒX ID
-P      ppid         eƒvƒƒZƒX‚ÌƒvƒƒZƒX ID
-r      rss          í’“ƒZƒbƒg‚Ì‘å‚«‚³
-R      resident     í’“ƒy[ƒW”
-s      size         ƒƒ‚ƒŠƒTƒCƒY (ƒLƒƒoƒCƒg’PˆÊ)
-S      share        è‚ß‚Ä‚¢‚éƒy[ƒW‚Ì—Ê
-t      tty          §Œä’[––‚ÌƒfƒoƒCƒX”Ô†
-T      start_time   ƒvƒƒZƒX‚ª‹N“®‚µ‚½
-U      uid          ƒ†[ƒU[ ID ”Ô†
-u      user         ƒ†[ƒU[–¼
-v      vsize        ‰¼‘zƒƒ‚ƒŠ‚Ì‘SƒTƒCƒY (kB ’PˆÊ)
-y      priority     ƒJ[ƒlƒ‹ƒXƒPƒWƒ…[ƒŠƒ“ƒO‚Ì—Dæ“x
+c      cmd          å®Ÿè¡Œãƒ•ã‚¡ã‚¤ãƒ«ã®çŸ­ã„åå‰
+C      pcpu         cpu ä½¿ç”¨ç‡
+f      flags        ãƒ•ãƒ©ã‚° (é•·ã„å½¢å¼ã® F ãƒ•ã‚£ãƒ¼ãƒ«ãƒ‰ã®æ›¸å¼)
+g      pgrp         ãƒ—ãƒ­ã‚»ã‚¹ã®ã‚°ãƒ«ãƒ¼ãƒ— ID
+G      tpgid        åˆ¶å¾¡ç«¯æœ«ãƒ—ãƒ­ã‚»ã‚¹ã‚°ãƒ«ãƒ¼ãƒ— ID
+j      cutime       ç´¯ç©ã—ãŸãƒ¦ãƒ¼ã‚¶ãƒ¼æ™‚é–“
+J      cstime       ç´¯ç©ã—ãŸã‚·ã‚¹ãƒ†ãƒ æ™‚é–“
+k      utime        ãƒ¦ãƒ¼ã‚¶ãƒ¼æ™‚é–“
+m      min_flt      ãƒã‚¤ãƒŠãƒ¼ãƒšãƒ¼ã‚¸ãƒ•ã‚©ãƒ«ãƒˆã®å›æ•°
+M      maj_flt      ãƒ¡ã‚¸ãƒ£ãƒ¼ãƒšãƒ¼ã‚¸ãƒ•ã‚©ãƒ«ãƒˆã®å›æ•°
+n      cmin_flt     ãƒã‚¤ãƒŠãƒ¼ãƒšãƒ¼ã‚¸ãƒ•ã‚©ãƒ«ãƒˆã®ç´¯ç©æ•°
+N      cmaj_flt     ãƒã‚¤ãƒŠãƒ¼ãƒšãƒ¼ã‚¸ãƒ•ã‚©ãƒ«ãƒˆã®ç´¯ç©æ•°
+o      session      ã‚»ãƒƒã‚·ãƒ§ãƒ³ ID
+p      pid          ãƒ—ãƒ­ã‚»ã‚¹ ID
+P      ppid         è¦ªãƒ—ãƒ­ã‚»ã‚¹ã®ãƒ—ãƒ­ã‚»ã‚¹ ID
+r      rss          å¸¸é§ã‚»ãƒƒãƒˆã®å¤§ãã•
+R      resident     å¸¸é§ãƒšãƒ¼ã‚¸æ•°
+s      size         ãƒ¡ãƒ¢ãƒªã‚µã‚¤ã‚º (ã‚­ãƒ­ãƒã‚¤ãƒˆå˜ä½)
+S      share        å ã‚ã¦ã„ã‚‹ãƒšãƒ¼ã‚¸ã®é‡
+t      tty          åˆ¶å¾¡ç«¯æœ«ã®ãƒ‡ãƒã‚¤ã‚¹ç•ªå·
+T      start_time   ãƒ—ãƒ­ã‚»ã‚¹ãŒèµ·å‹•ã—ãŸæ™‚åˆ»
+U      uid          ãƒ¦ãƒ¼ã‚¶ãƒ¼ ID ç•ªå·
+u      user         ãƒ¦ãƒ¼ã‚¶ãƒ¼å
+v      vsize        ä»®æƒ³ãƒ¡ãƒ¢ãƒªã®å…¨ã‚µã‚¤ã‚º (kB å˜ä½)
+y      priority     ã‚«ãƒ¼ãƒãƒ«ã‚¹ã‚±ã‚¸ãƒ¥ãƒ¼ãƒªãƒ³ã‚°ã®å„ªå…ˆåº¦
 
 %C       pcpu       %CPU
 %G       group      GROUP
@@ -163,7 +163,7 @@ struct{
   {"comm","COMMAND",wExeFiles}
 };
 
-// ƒƒCƒ“ŠÖ”
+// ãƒ¡ã‚¤ãƒ³é–¢æ•°
 int main( void ){
   static LPCTSTR Msg[] = {
     TEXT(" No. [szExeFile                     ] ")
@@ -198,6 +198,6 @@ int main( void ){
     CloseHandle( hSnapshot );
     printf( Msg[1] );
   }
-  printf( "ƒvƒƒZƒX”F%dŒÂ\n", nCount );
+  printf( "ãƒ—ãƒ­ã‚»ã‚¹æ•°ï¼š%då€‹\n", nCount );
   return 0;
 }
