@@ -300,14 +300,18 @@ function output_process(iProc,head,head2, _cmd,_args,_i,_iN,_line,_txtbr){
   if(data_proc[iProc,"<defunct>"])
     printf(ti_dim ti_gray);
 
-  print substr(_line txt_fill,1,SCREEN_WIDTH);
-  if(flagLineWrapping && length(_line)>SCREEN_WIDTH){
-    _txtbr=_iN==0?"  ":" |  ";
-    _txtbr=substr(txt_indent head2 _txtbr,1,SCREEN_WIDTH-40)
-    do{
-      _line=_txtbr substr(_line,SCREEN_WIDTH+1);
-      print substr(_line txt_fill,1,SCREEN_WIDTH);
-    }while(length(_line)>SCREEN_WIDTH);
+  if(flagLineWrapping){
+    print substr(_line txt_fill,1,SCREEN_WIDTH);
+    if(flagLineWrapping!="truncate" && length(_line)>SCREEN_WIDTH){
+      _txtbr=_iN==0?"  ":" |  ";
+      _txtbr=substr(txt_indent head2 _txtbr,1,SCREEN_WIDTH-40)
+      do{
+        _line=_txtbr substr(_line,SCREEN_WIDTH+1);
+        print substr(_line txt_fill,1,SCREEN_WIDTH);
+      }while(length(_line)>SCREEN_WIDTH);
+    }
+  }else{
+    print _line;
   }
 
   if(data_proc[iProc,"<defunct>"])
