@@ -15,18 +15,16 @@ function trim(str){
 }
 
 BEGIN{
+  mode="cyg.ps";
+  sys=="cygwin";
+
   txt_empty="                                                        ";
-  #SCREEN_WIDTH=200
-  SCREEN_WIDTH=200;
+  SCREEN_WIDTH=80;
   if(ENVIRON["COLUMNS"]!="")
     SCREEN_WIDTH=max(80,or(0,ENVIRON["COLUMNS"]))-1;
   iData=0;
 
-  ofs_ppid0=9;
-  ofs_ppidN=17;
-  ofs_winpid0=25;
-  ofs_winpidN=36;
-  ofs_command=56;
+  initialize_cygps();
 
   fCHKDEFUNCT=0;
 
@@ -35,22 +33,28 @@ BEGIN{
   ti_sgr0="\33[m"
 }
 
+/^psforest: mode=/{
+  sub(/^psforest: mode=/,"");
+  mode=$0;
+  next
+}
+
 #-------------------------------------------------------------------------------
 # read wmic outputs
 
-/^CommandLine\=/{
+mode=="wmic" && /^CommandLine\=/{
   gsub(/^CommandLine\=("[^"]+"|[^"[:space:]]+|\r$)|\r$/,"",$0);
   args=$0;
   next;
 }
 
-/^ParentProcessId\=/{
+mode=="wmic" && /^ParentProcessId\=/{
   gsub(/^ParentProcessId\=|\r$/,"",$0);
   ppid=$0;
   next;
 }
 
-/^ProcessId\=/{
+mode=="wmic" && /^ProcessId\=/{
   gsub(/^ProcessId\=|\r$/,"",$0);
   pid=$0;
   data_wmic[pid,"p"]=ppid;
@@ -59,25 +63,58 @@ BEGIN{
   next;
 }
 
-/^[[:space:]]*$/{
+mode=="wmic" && /^[[:space:]]*$/{
   next;
 }
 
 #-------------------------------------------------------------------------------
 # read ls outputs
 
-/^\/proc\/[0-9]+\/root\/$/{
+mode=="ls" && /^\/proc\/[0-9]+\/root\/$/{
   fCHKDEFUNCT=1;
   gsub(/^\/proc\/|\/root\/$/,"");
   data_wmic[$0,"D"]=1;
   next;
 }
 
-/^\/proc\/.+\/root\/$/{
+mode=="ls" && /^\/proc\/.+\/root\/$/{
   next;
 }
+
 #-------------------------------------------------------------------------------
 # read ps outputs
+
+function initialize_cygps(){
+  ofs_ppid0=9;
+  ofs_ppidN=17;
+  ofs_winpid0=25;
+  ofs_winpidN=36;
+  ofs_command=56;
+}
+
+function indexof_or(text,needle,def ,_i){
+  _i=index(text,needle)-1;
+  if(_i<0)return def;
+  return _i;
+}
+
+mode=="cyg.ps" && /^[[:space:]]*PID/ {
+  print;
+
+  if($0 ~ /COMMAND/){
+    txt_empty=$0;
+    sub(/COMMAND.*$/,"",txt_empty);
+    gsub(/./," ",txt_empty);
+  }
+
+  ofs_ppid0=indexof_or($0,"PID",6)+3;
+  ofs_ppidN=indexof_or($0,"PPID",13)+4;
+  ofs_winpid0=indexof_or($0,"PGID",21)+4;
+  ofs_winpidN=indexof_or($0,"WINPID",30)+6;
+  ofs_command=indexof_or($0,"COMMAND",56);
+
+  next;
+}
 
 function register_process(line, _pid,_ppid,_stat,_cmd){
   #----------------------------------------------------------------------
@@ -106,6 +143,10 @@ function register_process(line, _pid,_ppid,_stat,_cmd){
   iData++;
 }
 
+mode=="cyg.ps" {register_process($0);}
+
+#-------------------------------------------------------------------------------
+
 function construct_tree( _i,_ppid,_pid,_iP){
   for(_i=0;_i<iData;_i++){
     _pid=data_proc[_i,"i"];
@@ -116,7 +157,7 @@ function construct_tree( _i,_ppid,_pid,_iP){
       data_proc[_i,"<defunct>"]=1;
 
     # resolve ppid
-    if(_ppid=="0"||_ppid=="1")
+    if((_ppid=="0"||_ppid=="1")&&data_wmic[_pid,"p"])
       _ppid=data_wmic[_pid,"p"];
     if(_ppid==_pid)continue;
 
@@ -152,35 +193,8 @@ function output_process(iProc,head,head2, _cmd,_args,_i,_iN,_line,_txtbr){
     printf(ti_sgr0);
 
   for(_i=0;_i<_iN;_i++)
-    output_process(data_proc[iProc,"L",_i],head2 " \\_ ",head2 (_i+1==_iN?"    ":" |  "));
+    output_process(data_proc[iProc,"L",_i],head2 " \\_ ",head2 " " (_i+1==_iN?"   ":"|  "));
 }
-
-
-function indexof_or(text,needle,def ,_i){
-  _i=index(text,needle)-1;
-  if(_i<0)return def;
-  return _i;
-}
-
-/^[[:space:]]*PID/{
-  print;
-
-  if($0 ~ /COMMAND/){
-    txt_empty=$0;
-    sub(/COMMAND.*$/,"",txt_empty);
-    gsub(/./," ",txt_empty);
-  }
-
-  ofs_ppid0=indexof_or($0,"PID",6)+3;
-  ofs_ppidN=indexof_or($0,"PPID",13)+4;
-  ofs_winpid0=indexof_or($0,"PGID",21)+4;
-  ofs_winpidN=indexof_or($0,"WINPID",30)+6;
-  ofs_command=indexof_or($0,"COMMAND",56);
-
-  next;
-}
-
-{register_process($0);}
 
 END{
   construct_tree();
