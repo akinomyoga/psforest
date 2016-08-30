@@ -39,7 +39,6 @@ while (($#)); do
     done ;;
   (*) fields="${fields}$arg" ;;
   esac
-  break
 done
 
 if [[ $flagLineColor == auto ]]; then
