@@ -115,6 +115,15 @@ fi
     elif [[ $fields == *e* ]]; then
       echo "psforest: mode=wmic"
       : | wmic process get CommandLine,ParentProcessId,ProcessId /format:list | iconv -f cp932 -t utf-8
+      echo "psforest: mode=cmdline"
+      awk '
+        FILENAME ~ /^\/proc\/[0-9]+\/cmdline$/{
+          gsub(/^\/proc\/|\/cmdline$/,"",FILENAME);
+          sub(/^[^\x0]*(\x0|$)/,"");
+          gsub(/[[:cntrl:]]/," ");
+          if($0!="") print FILENAME,$0;
+        }
+      '  /proc/*/cmdline
       echo "psforest: mode=cygps"
       ps -e
     else

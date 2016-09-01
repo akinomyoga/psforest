@@ -87,10 +87,10 @@ mode=="wmic" && /^ParentProcessId\=/{
 
 mode=="wmic" && /^ProcessId\=/{
   gsub(/^ProcessId\=|\r$/,"",$0);
-  pid=$0;
-  data_wmic[pid,"p"]=ppid;
-  data_wmic[pid,"a"]=args;
-  #print pid,ppid,substr(args,1,40)
+  winpid=$0;
+  data_wmic[winpid,"p"]=ppid;
+  data_wmic[winpid,"a"]=args;
+  #print winpid,ppid,substr(args,1,40)
   next;
 }
 
@@ -109,6 +109,13 @@ mode=="ls" && /^\/proc\/[0-9]+\/root\/$/{
 }
 
 mode=="ls" && /^\/proc\/.+\/root\/$/{
+  next;
+}
+
+mode=="cmdline" {
+  pid=$1;
+  sub(/^[0-9]+/,"");
+  proc_info[pid,"a"]=$0;
   next;
 }
 
@@ -262,15 +269,16 @@ mode=="aixps" {register_process_aix($0);next;}
 function construct_tree( _i,_ppid,_pid,_iP){
   for(_i=0;_i<iData;_i++){
     _pid=data_proc[_i,"i"];
+    _winpid=data_proc[_i,"w"];
     _ppid=data_proc[_i,"p"];
 
     # check if it is <defunct>
-    if(fCHKDEFUNCT&&_ppid!="0"&&!data_wmic[_pid,"D"])
+    if(fCHKDEFUNCT&&_ppid!="0"&&!data_wmic[_winpid,"D"])
       data_proc[_i,"<defunct>"]=1;
 
     # resolve ppid
-    if((_ppid=="0"||_ppid=="1")&&data_wmic[_pid,"p"])
-      _ppid=data_wmic[_pid,"p"];
+    if((_ppid=="0"||_ppid=="1")&&data_wmic[_winpid,"p"])
+      _ppid=data_wmic[_winpid,"p"];
     if(_ppid==_pid)continue;
 
     _iP=dict_proc[_ppid];
@@ -288,10 +296,19 @@ function output_header(line){
     print line;
 }
 
+function proc_get_args(iProc, _ret, _winpid, _pid){
+  _winpid=data_proc[iProc,"w"];
+  _ret=data_wmic[_winpid,"a"];
+  if(_ret)return _ret;
+
+  _pid=data_proc[iProc,"i"];
+  return proc_info[_pid,"a"];
+}
+
 function output_process(iProc,head,head2, _cmd,_args,_i,_iN,_line,_txtbr){
   _cmd=data_proc[iProc,"c"];
   if(_cmd ~ /[^\\]$/)gsub(/^.+\\/,"",_cmd);
-  _args=data_wmic[data_proc[iProc,"w"],"a"];
+  _args=proc_get_args(iProc);
   _line=data_proc[iProc,"s"] head _cmd _args;
   _iN=data_proc[iProc,"N"];
 
