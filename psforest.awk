@@ -39,9 +39,10 @@ BEGIN{
   if(flagLineColor){
     ti_smhead="\33[1;48;5;239;38;5;231m";
     ti_rmhead="\33[m";
-    # ti_smodd="\33[48;5;189m";
-    ti_smodd="\33[48;5;254m";
+    ti_smodd="\33[48;5;254;38;5;16m";
     ti_rmodd="\33[49m";
+    ti_smeve="\33[48;5;231;38;5;16m";
+    ti_rmeve="\33[49m";
 
     txt_fill_length=4;
     txt_fill="    ";
@@ -55,6 +56,8 @@ BEGIN{
     ti_rmhead="";
     ti_smodd="";
     ti_rmodd="";
+    ti_smeve="";
+    ti_rmeve="";
     txt_fill="";
   }
 }
@@ -372,8 +375,8 @@ function output_process(iProc,head,head2, _stat,_cmd,_args,_i,_iN,_line,_txtbr){
   _line=_stat head _cmd _args;
   _iN=data_proc[iProc,"N"];
 
-  if(flagLineColor && outputProcessCount%2==1)
-    printf("%s",ti_smodd);
+  if(flagLineColor)
+    printf("%s",outputProcessCount%2==1?ti_smodd: ti_smeve);
   if(data_proc[iProc,"<defunct>"])
     printf(ti_dim ti_gray);
 
@@ -394,8 +397,8 @@ function output_process(iProc,head,head2, _stat,_cmd,_args,_i,_iN,_line,_txtbr){
   if(data_proc[iProc,"<defunct>"])
     printf(ti_sgr0);
 
-  if(flagLineColor && outputProcessCount%2==1)
-    printf("%s",ti_rmodd);
+  if(flagLineColor)
+    printf("%s",outputProcessCount%2==1?ti_rmodd: ti_rmeve);
   outputProcessCount++;
 
   for(_i=0;_i<_iN;_i++)
