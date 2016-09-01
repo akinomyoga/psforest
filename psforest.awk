@@ -18,6 +18,7 @@ BEGIN{
   mode="pass";
   flagLineColor = ENVIRON["flagLineColor"];
   flagLineWrapping = ENVIRON["flagLineWrapping"];
+  optionColorTheme = ENVIRON["optionColorTheme"];
 
   SCREEN_WIDTH=80;
   if(ENVIRON["COLUMNS"]!="")
@@ -37,12 +38,19 @@ BEGIN{
   }
 
   if(flagLineColor){
-    ti_smhead="\33[1;48;5;239;38;5;231m";
+    if(optionColorTheme=="dark"){
+      ti_smhead="\33[1;48;5;252;38;5;16m";
+      ti_smodd="\33[48;5;237;38;5;231m";
+      ti_smeve="\33[48;5;16;38;5;231m";
+    }else{
+      ti_smhead="\33[1;48;5;239;38;5;231m";
+      ti_smodd="\33[48;5;254;38;5;16m";
+      ti_smeve="\33[48;5;231;38;5;16m";
+    }
+
     ti_rmhead="\33[m";
-    ti_smodd="\33[48;5;254;38;5;16m";
-    ti_rmodd="\33[49m";
-    ti_smeve="\33[48;5;231;38;5;16m";
-    ti_rmeve="\33[49m";
+    ti_rmodd="\33[49;39m";
+    ti_rmeve="\33[49;39m";
 
     txt_fill_length=4;
     txt_fill="    ";

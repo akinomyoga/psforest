@@ -3,6 +3,7 @@
 # default options
 export flagLineColor=auto
 export flagLineWrapping=auto
+export optionColorTheme=light
 fields=
 
 #------------------------------------------------------------------------------
@@ -19,6 +20,8 @@ while (($#)); do
     flagLineColor= ;;
   (--color=*)
     flagLineColor=${arg#*=} ;;
+  (--theme=*)
+    optionColorTheme=${arg#*=} ;;
   (--wrap|--wrap=always)
     flagLineWrapping=1 ;;
   (--wrap=none|--wrap=never)
@@ -64,12 +67,13 @@ fi
 
 if [[ $fHelp ]]; then
   cat <<EOF
-psforest OPTIONS FLAGS
+psforest [OPTIONS]
 
 OPTIONS
 
   --color
   --color=WHEN
+
     Control if the line coloring is enabled or not.
 
     WHEN is one of the following values.
@@ -83,9 +87,18 @@ OPTIONS
     If the value is omitted, 'always' is used.
     The default value is 'auto'.
 
+  --theme=THEME
+
+    Specify color theme. THEME is one of the following values.
+      light   theme for terminals with a light background
+      dark    theme for terminals with a dark background
+
+    The default value is 'light'.
+
   --wrap
   --wrap=WHEN
   --wrap=truncate
+
     Control the wrapping of lines which do not fit into terminal width.
 
     The value is one of the WHEN values described above, or 'truncate'.
@@ -94,10 +107,13 @@ OPTIONS
     If the value is omitted, 'always' is used.
     The default value is 'auto'.
 
-FLAGS
+  --help
 
+    Show this help
+
+  -W
   w
-  e
+    In cygwin, show non-Cygwin processes as well as cygwin processes
 
 EOF
   exit
