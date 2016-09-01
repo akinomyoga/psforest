@@ -2,13 +2,119 @@
 
 #include <cstdio>
 #include <string>
+#include <vector>
+#include <memory>
 #include <windows.h>
 #include <tlhelp32.h>
-#include <vector>
 
-struct ProcessInformation{
+struct ProcessInformation {
   PROCESSENTRY32 m_processEntry;
 };
+
+struct IProcessField;
+
+static std::vector<IProcessField*>& getFields() {
+  static std::vector<IProcessField*> instance;
+  return instance;
+}
+
+struct IProcessField {
+  virtual const char* specifier() const = 0;
+  virtual const char* header() const = 0;
+  virtual int width() const = 0;
+  virtual void write(FILE* file, int width, ProcessInformation& info) const = 0;
+
+  IProcessField() {
+    getFields().push_back(this);
+  }
+  virtual ~IProcessField() {}
+};
+
+static struct FieldWINPID: IProcessField {
+  const char* specifier() const {return "winpid";}
+  const char* header() const {return "WINPID";}
+  int width() const {return 6;}
+  void write(FILE* file, int width, ProcessInformation& info) const {
+    std::fprintf(file, "%*d", width, info.m_processEntry.th32ProcessID);
+  }
+} instance5;
+
+static struct FieldWINPPID: IProcessField {
+  const char* specifier() const {return "winppid";}
+  const char* header() const {return "WINPPID";}
+  int width() const {return 7;}
+  void write(FILE* file, int width, ProcessInformation& info) const {
+    std::fprintf(file, "%*d", width, info.m_processEntry.th32ParentProcessID);
+  }
+} instance4;
+
+static struct FieldPriorityClassBase: IProcessField {
+  const char* specifier() const {return "pri";}
+  const char* header() const {return "PRI";}
+  int width() const {return 6;}
+  void write(FILE* file, int width, ProcessInformation& info) const {
+    std::fprintf(file, "%*d", width, info.m_processEntry.pcPriClassBase);
+  }
+} instance8;
+
+static struct FieldThreadCount: IProcessField {
+  const char* specifier() const {return "thcount";}
+  const char* header() const {return "THCNT";}
+  int width() const {return 6;}
+  void write(FILE* file, int width, ProcessInformation& info) const {
+    std::fprintf(file, "%*d", width, info.m_processEntry.cntThreads);
+  }
+} instance3;
+
+static struct FieldExeName: IProcessField {
+  const char* specifier() const {return "command";}
+  const char* header() const {return "COMMAND";}
+  int width() const {return 30;}
+  void write(FILE* file, int width, ProcessInformation& info) const {
+    std::fprintf(file, "%-*s", width, info.m_processEntry.szExeFile);
+  }
+} instance1;
+
+//-----------------------------------------------------------------------------
+// These are no longer used, and are always set to zero.
+
+static struct FieldUsageCount: IProcessField {
+  const char* specifier() const {return "usage";}
+  const char* header() const {return "USAGE";}
+  int width() const {return 6;}
+  void write(FILE* file, int width, ProcessInformation& info) const {
+    std::fprintf(file, "%*d", width, info.m_processEntry.cntUsage);
+  }
+} instance2;
+
+static struct FieldDefaultHeapID: IProcessField {
+  const char* specifier() const {return "heapid";}
+  const char* header() const {return "HEAPID";}
+  int width() const {return 6;}
+  void write(FILE* file, int width, ProcessInformation& info) const {
+    std::fprintf(file, "%*d", width, info.m_processEntry.th32DefaultHeapID);
+  }
+} instance6;
+
+static struct FieldModuleID: IProcessField {
+  const char* specifier() const {return "modid";}
+  const char* header() const {return "MODID";}
+  int width() const {return 6;}
+  void write(FILE* file, int width, ProcessInformation& info) const {
+    std::fprintf(file, "%*d", width, info.m_processEntry.th32ModuleID);
+  }
+} instance7;
+
+static struct FieldFlags: IProcessField {
+  const char* specifier() const {return "flags";}
+  const char* header() const {return "FLAGS";}
+  int width() const {return 8;}
+  void write(FILE* file, int width, ProcessInformation& info) const {
+    std::fprintf(file, "%0*X", width, info.m_processEntry.dwFlags);
+  }
+} instance9;
+
+//-----------------------------------------------------------------------------
 
 /*
 c      cmd          実行ファイルの短い名前
@@ -151,24 +257,6 @@ wchan      WCHAN
 
 */
 
-void wExeFiles(FILE* f,PROCESSENTRY32& proc){
-  std::fprintf(f,"%-30s",proc.szExeFile);
-}
-void wCntUsage(FILE* f,PROCESSENTRY32& proc){
-  std::fprintf(f,"%6d",proc.cntUsage);
-}
-void wCntThreads(FILE* f,PROCESSENTRY32& proc){
-  std::fprintf(f,"%6d",proc.cntThreads);
-}
-
-static struct{
-  const char* name;
-  const char* header;
-  void (*write)(FILE*,PROCESSENTRY32&);
-} fields[]={
-  {"comm","COMMAND",wExeFiles}
-};
-
 void get_list_of_processes(std::vector<ProcessInformation>& processes) {
   HANDLE hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS,0);
   if (hSnapshot != INVALID_HANDLE_VALUE) {
@@ -191,17 +279,47 @@ int main() {
   std::vector<ProcessInformation> processes;
   get_list_of_processes(processes);
 
-  for (ProcessInformation const& info: processes) {
-    PROCESSENTRY32 const& pe32 = info.m_processEntry;
-    printf( "[%-30s] ", pe32.szExeFile);
-    printf( "%6d ",     pe32.cntUsage);
-    printf( "%6d ",     pe32.cntThreads);
-    printf( "%6d ",     pe32.th32ParentProcessID);
-    printf( "%6d ",     pe32.th32ProcessID);
-    printf( "%6d ",     pe32.th32DefaultHeapID);
-    printf( "%6d ",     pe32.th32ModuleID);
-    printf( "%6d ",     pe32.pcPriClassBase);
-    printf( "%08X\n",   pe32.dwFlags);
+  auto const& fields = getFields();
+
+  {
+    bool first = true;
+    for (IProcessField* f: fields) {
+      if (first)
+        first = false;
+      else
+        std::fputc(' ', stdout);
+
+      int const width = f->width();
+      std::fprintf(stdout, "%*s", width, f->header());
+    }
+    std::fputc('\n', stdout);
+  }
+
+  for (ProcessInformation& info: processes) {
+    {
+      bool first = true;
+      for (IProcessField* f: fields) {
+        if (first)
+          first = false;
+        else
+          std::fputc(' ', stdout);
+
+        int const width = f->width();
+        f->write(stdout, width, info);
+      }
+    }
+    std::fputc('\n', stdout);
+
+    // PROCESSENTRY32 const& pe32 = info.m_processEntry;
+    // printf( "[%-30s] ", pe32.szExeFile);
+    // printf( "%6d ",     pe32.cntUsage);
+    // printf( "%6d ",     pe32.cntThreads);
+    // printf( "%6d ",     pe32.th32ParentProcessID);
+    // printf( "%6d ",     pe32.th32ProcessID);
+    // printf( "%6d ",     pe32.th32DefaultHeapID);
+    // printf( "%6d ",     pe32.th32ModuleID);
+    // printf( "%6d ",     pe32.pcPriClassBase);
+    // printf( "%08X\n",   pe32.dwFlags);
   }
 
   return 0;
