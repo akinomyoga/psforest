@@ -120,6 +120,83 @@ mode=="cmdline" {
 }
 
 #-------------------------------------------------------------------------------
+# columns functions
+
+## @fn columns_initialize(head)
+## @var[out] columns[index]
+## @var[out] columns_label2index[label]
+function columns_initialize(head, _i,_offset,_width,_label){
+  columns_count=0;
+  _offset=0;
+  while(match(head, /[^[:space:]]+/)>0){
+    _i=columns_count++;
+    _label=substr(head,RSTART,RLENGTH);
+    _width=RSTART-1+RLENGTH;
+    columns[_i,"label"] =_label;
+    columns[_i,"offset"]=_offset;
+    columns[_i,"width"] =_width;
+    columns[_i,"wmax"]  =length(_label)+1; # maximal width of values
+    columns[_i,"novf"]  =0;                # number of overflowing values
+    columns[_i,"skip"]  =columns_config[_label,"skip"];
+    columns[_i,"left"]  =columns_config[_label,"left"];
+
+    columns_label2index[_label]=_i;
+    columns_data["HEAD",_i]=_label;
+
+    head=substr(head,_width+2);
+    _offset+=_width+1;
+  }
+}
+
+function columns_register(line, _l,_i,_value,_width,_len){
+  _l=columns_nline++;
+  for(_i=0;_i<columns_count-1;_i++){
+    _width=columns[_i,"width"];
+    _value=substr(line,1,_width);
+    line=substr(line,_width+1);
+
+    # read overflowing data
+    if(match(line,/^[^[:space:]]+/)>0){
+      _value=_value substr(line,1,RLENGTH);
+      line=substr(line,RLENGTH+1);
+      if(columns[_i,"left"])
+        line=sprintf("%*s",RLENGTH,"") line;
+    }
+
+    _value=trim(_value);
+    _len=length(_value);
+    if(_len>_width)
+      columns[_i,"novf"]++;
+    if(_len>columns[_i,"wmax"])
+      columns[_i,"wmax"]=_len;
+
+    columns_data[_l,_i]=_value;
+
+    # skip space
+    line=substr(line,2);
+  }
+
+  # the last column has an unlimited length
+  columns_data[_l,_i]=line;
+  return _l;
+}
+
+function columns_construct(iline, _ret,_label,_fmt){
+  if(iline=="")iline="HEAD";
+
+  _ret="";
+  for(_i=0;_i<columns_count-1;_i++){
+    if(columns[_i,"skip"])continue;
+    _fmt=columns[_i,"left"]?"%-*s ":"%*s ";
+    _ret=_ret sprintf(_fmt,columns[_i,"wmax"],columns_data[iline,_i]);
+  }
+  if(!columns[columns_count-1,"skip"])
+    _ret=_ret columns_data[iline,columns_count-1];
+
+  return _ret;
+}
+
+#-------------------------------------------------------------------------------
 # read ps outputs for cygwin
 
 function initialize_cygps(){
@@ -215,7 +292,7 @@ function register_process_mac(line, _pid,_ppid,_stat,_cmd,_arr,_iC0){
   _iC0=index(line,_arr[10])+length(_arr[10]);if(_iC0<0)iC0=73;
   data_proc[iData,"i"]=_arr[3];  # PID
   data_proc[iData,"p"]=_arr[1];  # PPID
-  data_proc[iData,"s"]=slice(line,iColumnOfUser,_iC0);         # PID-STIME
+  data_proc[iData,"s"]=slice(line,iColumnOfUser,_iC0);         # USER-STIME
   data_proc[iData,"c"]=slice(line,_iC0);           # COMMAND
   data_proc[iData,"N"]=0;
   dict_proc[data_proc[iData,"i"]]=iData;
@@ -255,7 +332,7 @@ function register_process_aix(line, _pid,_ppid,_stat,_cmd){
   #----------------------------------------------------------------------
   data_proc[iData,"i"]=trim(slice(line,17,24));  # PID
   data_proc[iData,"p"]=trim(slice(line,0,7));    # PPID
-  data_proc[iData,"s"]=slice(line,9,73);         # PID-STIME
+  data_proc[iData,"s"]=slice(line,9,73);         # USER-STIME
   data_proc[iData,"c"]=slice(line,73);           # COMMAND
   data_proc[iData,"N"]=0;
   dict_proc[data_proc[iData,"i"]]=iData;
@@ -305,11 +382,12 @@ function proc_get_args(iProc, _ret, _winpid, _pid){
   return proc_info[_pid,"a"];
 }
 
-function output_process(iProc,head,head2, _cmd,_args,_i,_iN,_line,_txtbr){
+function output_process(iProc,head,head2, _stat,_cmd,_args,_i,_iN,_line,_txtbr){
   _cmd=data_proc[iProc,"c"];
   if(_cmd ~ /[^\\]$/)gsub(/^.+\\/,"",_cmd);
   _args=proc_get_args(iProc);
-  _line=data_proc[iProc,"s"] head _cmd _args;
+  _stat=columns_count?columns_construct(iProc):data_proc[iProc,"s"];
+  _line=_stat head _cmd _args;
   _iN=data_proc[iProc,"N"];
 
   if(flagLineColor && outputProcessCount%2==1)
@@ -346,6 +424,12 @@ mode=="pass"{print;}
 
 END{
   construct_tree();
+
+  if(columns_count){
+    head=columns_construct("HEAD");
+    txt_indent=sprintf("%*s",length(head),"");
+    output_header(head "COMMAND");
+  }
 
   outputProcessCount=0;
   for(i=0;i<iData;i++){
