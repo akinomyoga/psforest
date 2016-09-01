@@ -200,37 +200,6 @@ function columns_construct(iline, _ret,_label,_fmt){
 # read ps outputs for cygwin
 
 function initialize_cygps(){
-  ofs_ppid0=9;
-  ofs_ppidN=17;
-  ofs_winpid0=25;
-  ofs_winpidN=36;
-  ofs_command=56;
-}
-
-function indexof_or(text,needle,def ,_i){
-  _i=index(text,needle)-1;
-  if(_i<0)return def;
-  return _i;
-}
-
-mode=="cygps" && /^[[:space:]]*PID/ {
-  output_header($0);
-
-  if(flagLineWrapping && $0 ~ /COMMAND/){
-    txt_indent=$0;
-    sub(/COMMAND.*$/,"",txt_indent);
-    gsub(/./," ",txt_indent);
-  }
-
-  ofs_ppid0=indexof_or($0,"PID",6)+3;
-  ofs_ppidN=indexof_or($0,"PPID",13)+4;
-  ofs_winpid0=indexof_or($0,"PGID",21)+4;
-  ofs_winpidN=indexof_or($0,"WINPID",30)+6;
-  ofs_command=indexof_or($0,"COMMAND",56);
-  next;
-}
-
-function register_process(line, _pid,_ppid,_stat,_cmd){
   #----------------------------------------------------------------------
   #  sample
   #----------------------------------------------------------------------
@@ -244,14 +213,27 @@ function register_process(line, _pid,_ppid,_stat,_cmd){
   #      572    4080    4080        572    ? 1005   Jul 10 /usr/sbin/httpd2
   #     5728    4080    4080       5728    ? 1005   Jul 10 /usr/sbin/httpd2
   #----------------------------------------------------------------------
-  #0         1         2         3         4         5         6
-  #0123456789012345678901234567890123456789012345678901234567890123456789
-  #----------------------------------------------------------------------
-  data_proc[iData,"i"]=trim(slice(line,1,ofs_ppid0));             # PID
-  data_proc[iData,"p"]=trim(slice(line,ofs_ppid0  ,ofs_ppidN  )); # PPID
-  data_proc[iData,"w"]=trim(slice(line,ofs_winpid0,ofs_winpidN)); # WINPID
-  data_proc[iData,"s"]=slice(line,0,ofs_command);                 # PID-STIME
-  data_proc[iData,"c"]=slice(line,ofs_command);                   # COMMAND
+  columns_config["COMMAND","skip"]=1;
+  columns_config["PPID","skip"]=1;
+  columns_config["TTY","left"]=1;
+  columns_initialize("S     PID    PPID    PGID     WINPID  TTY  UID    STIME COMMAND"); # default
+}
+
+mode=="cygps" && /^[[:space:]]*PID/ {
+  columns_initialize("S" substr($0,2));
+  next;
+}
+
+function columns_getColumnByLabel(iline,label){
+  return columns_data[iline,columns_label2index[label]];
+}
+
+function register_process(line, _pid,_ppid,_stat,_cmd,_iline){
+  _iline=columns_register(line);
+  data_proc[iData,"i"]=columns_getColumnByLabel(_iline,"PID");
+  data_proc[iData,"p"]=columns_getColumnByLabel(_iline,"PPID");
+  data_proc[iData,"w"]=columns_getColumnByLabel(_iline,"WINPID");
+  data_proc[iData,"c"]=columns_getColumnByLabel(_iline,"COMMAND");
   data_proc[iData,"N"]=0;
   dict_proc[data_proc[iData,"i"]]=iData;
   iData++;
