@@ -375,7 +375,7 @@ function proc_get_args(iProc, _ret, _winpid, _pid){
   return proc_info[_pid,"a"];
 }
 
-function output_process(iProc,head,head2, _stat,_cmd,_args,_i,_iN,_line,_txtbr){
+function output_process(iProc,head,head2, _stat,_cmd,_args,_i,_iN,_line,_txtbr, _ti1,_ti2){
   _cmd=data_proc[iProc,"c"];
   if(_cmd ~ /[^\\]$/)gsub(/^.+\\/,"",_cmd);
   _args=proc_get_args(iProc);
@@ -383,30 +383,35 @@ function output_process(iProc,head,head2, _stat,_cmd,_args,_i,_iN,_line,_txtbr){
   _line=_stat head _cmd _args;
   _iN=data_proc[iProc,"N"];
 
-  if(flagLineColor)
-    printf("%s",outputProcessCount%2==1?ti_smodd: ti_smeve);
-  if(data_proc[iProc,"<defunct>"])
-    printf(ti_dim ti_gray);
+  _ti1="";_ti2="";
+  if(flagLineColor){
+    if(outputProcessCount%2==1){
+      _ti1=_ti1 ti_smodd;
+      _ti2=ti_rmodd _ti2;
+    }else{
+      _ti1=_ti1 ti_smeve;
+      _ti2=ti_rmeve _ti2;
+    }
+    if(data_proc[iProc,"<defunct>"]){
+      _ti1=_ti1 ti_dim ti_gray;
+      _ti2=ti_sgr0 _ti2;
+    }
+  }
 
   if(flagLineWrapping){
-    print substr(_line txt_fill,1,SCREEN_WIDTH);
+    print _ti1 substr(_line txt_fill,1,SCREEN_WIDTH) _ti2;
     if(flagLineWrapping!="truncate" && length(_line)>SCREEN_WIDTH){
       _txtbr=_iN==0?"  ":" |  ";
       _txtbr=substr(txt_indent head2 _txtbr,1,SCREEN_WIDTH-40)
       do{
         _line=_txtbr substr(_line,SCREEN_WIDTH+1);
-        print substr(_line txt_fill,1,SCREEN_WIDTH);
+        print _ti1 substr(_line txt_fill,1,SCREEN_WIDTH) _ti2;
       }while(length(_line)>SCREEN_WIDTH);
     }
   }else{
-    print _line;
+    print _ti1 _line _ti2;
   }
 
-  if(data_proc[iProc,"<defunct>"])
-    printf(ti_sgr0);
-
-  if(flagLineColor)
-    printf("%s",outputProcessCount%2==1?ti_rmodd: ti_rmeve);
   outputProcessCount++;
 
   for(_i=0;_i<_iN;_i++)
