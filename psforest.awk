@@ -10,7 +10,7 @@ function slice(str,start,end){
     return substr(str,start+1,end-start);
 }
 function trim(str){
-  gsub(/^[[:space:]]+|^[[:space:]]*$/,"",str);
+  gsub(/^[[:space:]]+|[[:space:]]*$/,"",str);
   return str;
 }
 
