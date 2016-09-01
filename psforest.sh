@@ -107,16 +107,9 @@ fi
 {
   if [[ $OSTYPE == cygwin* || $OSTYPE == mingw* || $OSTYPE == msys* ]]; then
     cd /tmp
-    if [[ $fields == *w* ]]; then
-      echo "psforest: mode=wmic"
-      : | wmic process get CommandLine,ParentProcessId,ProcessId /format:list | iconv -f cp932 -t utf-8
-      echo "psforest: mode=cygps"
-      ps -We
-    elif [[ $fields == *e* ]]; then
-      echo "psforest: mode=wmic"
-      : | wmic process get CommandLine,ParentProcessId,ProcessId /format:list | iconv -f cp932 -t utf-8
-      echo "psforest: mode=cmdline"
-      awk '
+
+    echo "psforest: mode=cmdline"
+    awk '
         FILENAME ~ /^\/proc\/[0-9]+\/cmdline$/{
           gsub(/^\/proc\/|\/cmdline$/,"",FILENAME);
           sub(/^[^\x0]*(\x0|$)/,"");
@@ -124,8 +117,12 @@ fi
           if($0!="") print FILENAME,$0;
         }
       '  /proc/*/cmdline
+
+    if [[ $fields == *w* ]]; then
+      echo "psforest: mode=wmic"
+      : | wmic process get CommandLine,ParentProcessId,ProcessId /format:list | iconv -f cp932 -t utf-8
       echo "psforest: mode=cygps"
-      ps -e
+      ps -We
     else
       echo "psforest: mode=cygps"
       ps -e
