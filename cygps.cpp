@@ -4,6 +4,11 @@
 #include <string>
 #include <windows.h>
 #include <tlhelp32.h>
+#include <vector>
+
+struct ProcessInformation{
+  PROCESSENTRY32 m_processEntry;
+};
 
 /*
 c      cmd          実行ファイルの短い名前
@@ -145,17 +150,18 @@ vsz        VSZ
 wchan      WCHAN
 
 */
-void wExeFile(FILE* f,PROCESSENTRY32& proc){
+
+void wExeFiles(FILE* f,PROCESSENTRY32& proc){
   std::fprintf(f,"%-30s",proc.szExeFile);
 }
 void wCntUsage(FILE* f,PROCESSENTRY32& proc){
   std::fprintf(f,"%6d",proc.cntUsage);
 }
-void wCntUsage(FILE* f,PROCESSENTRY32& proc){
+void wCntThreads(FILE* f,PROCESSENTRY32& proc){
   std::fprintf(f,"%6d",proc.cntThreads);
 }
 
-struct{
+static struct{
   const char* name;
   const char* header;
   void (*write)(FILE*,PROCESSENTRY32&);
@@ -163,41 +169,40 @@ struct{
   {"comm","COMMAND",wExeFiles}
 };
 
-// メイン関数
-int main( void ){
-  static LPCTSTR Msg[] = {
-    TEXT(" No. [szExeFile                     ] ")
-    TEXT(" Usage Thread PareID ProcID HeapID ModuID Priori  dwFlags\n"),
-    
-    TEXT("---- -------------------------------- ")
-    TEXT("------ ------ ------ ------ ------ ------ ------ --------\n"),
-  };
-  HANDLE hSnapshot;
-  INT nCount = 0;
-  
-  if ( (hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS,0)) != INVALID_HANDLE_VALUE ){
+void get_list_of_processes(std::vector<ProcessInformation>& processes) {
+  HANDLE hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS,0);
+  if (hSnapshot != INVALID_HANDLE_VALUE) {
     PROCESSENTRY32 pe32;
-    pe32.dwSize = sizeof( PROCESSENTRY32 );
-    printf( Msg[0] );
-    printf( Msg[1] );
-    
-    if ( Process32First(hSnapshot,&pe32) ){
+    pe32.dwSize = sizeof(PROCESSENTRY32);
+
+    if (Process32First(hSnapshot, &pe32)) {
       do {
-        printf( "%3d: ",        ++nCount );
-        printf( "[%-30s] ",     pe32.szExeFile );
-        printf( "%6d ",         pe32.cntUsage );
-        printf( "%6d ",         pe32.cntThreads );
-        printf( "%6d ",         pe32.th32ParentProcessID );
-        printf( "%6d ",         pe32.th32ProcessID );
-        printf( "%6d ",         pe32.th32DefaultHeapID );
-        printf( "%6d ",         pe32.th32ModuleID );
-        printf( "%6d ",         pe32.pcPriClassBase );
-        printf( "%08X\n",       pe32.dwFlags );
-      } while ( Process32Next(hSnapshot,&pe32) );
+        ProcessInformation info;
+        info.m_processEntry = pe32;
+        processes.push_back(info);
+      } while (Process32Next(hSnapshot,&pe32));
     }
-    CloseHandle( hSnapshot );
-    printf( Msg[1] );
+    CloseHandle(hSnapshot);
   }
-  printf( "プロセス数：%d個\n", nCount );
+}
+
+// メイン関数
+int main() {
+  std::vector<ProcessInformation> processes;
+  get_list_of_processes(processes);
+
+  for (ProcessInformation const& info: processes) {
+    PROCESSENTRY32 const& pe32 = info.m_processEntry;
+    printf( "[%-30s] ", pe32.szExeFile);
+    printf( "%6d ",     pe32.cntUsage);
+    printf( "%6d ",     pe32.cntThreads);
+    printf( "%6d ",     pe32.th32ParentProcessID);
+    printf( "%6d ",     pe32.th32ProcessID);
+    printf( "%6d ",     pe32.th32DefaultHeapID);
+    printf( "%6d ",     pe32.th32ModuleID);
+    printf( "%6d ",     pe32.pcPriClassBase);
+    printf( "%08X\n",   pe32.dwFlags);
+  }
+
   return 0;
 }
