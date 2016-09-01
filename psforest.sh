@@ -2,7 +2,7 @@
 
 # default options
 export flagLineColor=auto
-export flagLineWrapping=auto
+export flagLineWrapping=truncate
 export optionColorTheme=light
 fields=
 
@@ -36,6 +36,7 @@ while (($#)); do
     while [[ $arg ]]; do
       o=${arg::1}
       case "$o" in
+      (w) flagLineWrapping=1 ;;
       (W) fields="${fields}w" ;;
       (*) fError=1; echo "psforest: unrecognized option -$o" >&2 ;;
       esac
@@ -95,17 +96,17 @@ OPTIONS
 
     The default value is 'light'.
 
-  --wrap
+  -w, --wrap
   --wrap=WHEN
   --wrap=truncate
 
     Control the wrapping of lines which do not fit into terminal width.
 
-    The value is one of the WHEN values described above, or 'truncate'.
-      truncate  truncate lines
+    WHEN is one of the values described in the option '--color'.
+    If the value 'truncate' is specified long command lines are truncated.
 
     If the value is omitted, 'always' is used.
-    The default value is 'auto'.
+    The default value is 'truncate'.
 
   --help
 

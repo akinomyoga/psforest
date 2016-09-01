@@ -146,8 +146,8 @@ function columns_initialize(head, _i,_offset,_width,_label){
     columns[_i,"label"] =_label;
     columns[_i,"offset"]=_offset;
     columns[_i,"width"] =_width;
-    columns[_i,"wmax"]  =length(_label)+1; # maximal width of values
-    columns[_i,"novf"]  =0;                # number of overflowing values
+    columns[_i,"wmax"]  =length(_label); # maximal width of values
+    columns[_i,"novf"]  =0;              # number of overflowing values
     columns[_i,"skip"]  =columns_config[_label,"skip"];
     columns[_i,"left"]  =columns_config[_label,"left"];
 
