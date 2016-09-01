@@ -29,20 +29,30 @@ BEGIN{
   initialize_cygps();
 
   fCHKDEFUNCT=0;
-  ti_dim="\33[2m";if(ENVIRON["TERM"]=="rosaterm")ti_dim="\33[9m";
-  ti_gray="\33[37m";
-  ti_sgr0="\33[m";
 
   if(flagLineWrapping){
     txt_indent="                                                        ";
   }
 
+  ti_smhead="";
+  ti_rmhead="";
+  ti_smodd="";
+  ti_rmodd="";
+  ti_smeve="";
+  ti_rmeve="";
+  txt_fill="";
+
   if(flagLineColor){
+    ti_dim="\33[2m";if(ENVIRON["TERM"]=="rosaterm")ti_dim="\33[9m";
+    ti_sgr0="\33[m";
+
     if(optionColorTheme=="dark"){
+      ti_defunct=ti_dim "\33[38;5;248m";
       ti_smhead="\33[1;48;5;252;38;5;16m";
       ti_smodd="\33[48;5;237;38;5;231m";
       ti_smeve="\33[48;5;16;38;5;231m";
     }else{
+      ti_defunct=ti_dim "\33[38;5;240m";
       ti_smhead="\33[1;48;5;239;38;5;231m";
       ti_smodd="\33[48;5;254;38;5;16m";
       ti_smeve="\33[48;5;231;38;5;16m";
@@ -59,14 +69,6 @@ BEGIN{
       txt_fill_length*=2;
     }
     txt_fill=slice(txt_fill,0,SCREEN_WIDTH);
-  }else{
-    ti_smhead="";
-    ti_rmhead="";
-    ti_smodd="";
-    ti_rmodd="";
-    ti_smeve="";
-    ti_rmeve="";
-    txt_fill="";
   }
 }
 
@@ -115,7 +117,7 @@ mode=="wmic" && /^[[:space:]]*$/{
 mode=="ls" && /^\/proc\/[0-9]+\/root\/$/{
   fCHKDEFUNCT=1;
   gsub(/^\/proc\/|\/root\/$/,"");
-  data_wmic[$0,"D"]=1;
+  proc_info[$0,"D"]=1;
   next;
 }
 
@@ -343,7 +345,7 @@ function construct_tree( _i,_ppid,_pid,_iP){
     _ppid=data_proc[_i,"p"];
 
     # check if it is <defunct>
-    if(fCHKDEFUNCT&&_ppid!="0"&&!data_wmic[_winpid,"D"])
+    if(fCHKDEFUNCT&&_ppid!="0"&&!proc_info[_pid,"D"])
       data_proc[_i,"<defunct>"]=1;
 
     # resolve ppid
@@ -393,7 +395,7 @@ function output_process(iProc,head,head2, _stat,_cmd,_args,_i,_iN,_line,_txtbr, 
       _ti2=ti_rmeve _ti2;
     }
     if(data_proc[iProc,"<defunct>"]){
-      _ti1=_ti1 ti_dim ti_gray;
+      _ti1=_ti1 ti_defunct;
       _ti2=ti_sgr0 _ti2;
     }
   }

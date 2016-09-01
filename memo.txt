@@ -11,6 +11,8 @@ psforest memo.txt
   実機がないので現在は試せないので触らない。
   実機に触る機会があれば試す。
 
+* mingw/msys support
+
 2016-09-01
 
 * cygwin: WINPID と PID の区別・整理

@@ -147,7 +147,7 @@ fi
     fi
 
     # echo "psforest: mode=ls"
-    # ls -1d /proc/*/root/
+    # ls -1d /proc/[0-9]*/root/
   elif [[ $OSTYPE == darwin* || $OSTYPE == freebsd* || $OSTYPE == bsd* ]]; then
     echo "psforest: mode=macps"
     ps -A -o ppid,user,pid,pcpu,pmem,vsize,tty,stat,start,time,args
