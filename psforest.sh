@@ -33,6 +33,7 @@ while (($#)); do
     while [[ $arg ]]; do
       o=${arg::1}
       case "$o" in
+      (W) fields="${fields}w" ;;
       (*) fError=1; echo "psforest: unrecognized option -$o" >&2 ;;
       esac
       arg=${arg:1}
