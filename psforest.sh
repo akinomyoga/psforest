@@ -142,4 +142,4 @@ fi
   else
     ps uaxf
   fi
-} | gawk -f %share%/psforest.awk
+} | gawk -f ./psforest.awk

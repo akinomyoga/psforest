@@ -15,7 +15,7 @@ install: $(SHARE)/psforest.awk $(BINDIR)/psforest
 $(SHARE)/psforest.awk: psforest.awk | $(SHARE)
 	cp -p $< $@
 $(BINDIR)/psforest: psforest.sh | $(BINDIR)
-	sed 's|%share%|$(SHARE)|' $< > $@ && chmod +x $@
+	sed 's|\./psforest\.awk|$(SHARE)/psforest.awk|' $< > $@ && chmod +x $@
 
 .PHONY: dist
 dist:
