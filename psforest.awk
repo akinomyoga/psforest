@@ -1,134 +1,134 @@
 #!/bin/gawk -f
 
-function max(a,b){
-  return a>b?a:b;
+function max(a, b) {
+  return a > b ? a : b;
 }
-function slice(str,start,end){
-  if(end=="")
-    return substr(str,start+1);
+function slice(str, start, end) {
+  if (end == "")
+    return substr(str, start + 1);
   else
-    return substr(str,start+1,end-start);
+    return substr(str, start + 1, end - start);
 }
-function trim(str){
-  gsub(/^[[:space:]]+|[[:space:]]*$/,"",str);
+function trim(str) {
+  gsub(/^[[:space:]]+|[[:space:]]*$/, "", str);
   return str;
 }
 
-BEGIN{
-  mode="pass";
+BEGIN {
+  mode = "pass";
   flagLineColor = ENVIRON["flagLineColor"];
   flagLineWrapping = ENVIRON["flagLineWrapping"];
   optionColorTheme = ENVIRON["optionColorTheme"];
 
-  SCREEN_WIDTH=80;
-  if(ENVIRON["COLUMNS"]!="")
-    SCREEN_WIDTH=max(80,or(0,ENVIRON["COLUMNS"]))-1;
+  SCREEN_WIDTH = 80;
+  if (ENVIRON["COLUMNS"] != "")
+    SCREEN_WIDTH = max(80, or(0, ENVIRON["COLUMNS"])) - 1;
 
-  iData=0;
+  iData = 0;
 
   initialize_cygps();
 
-  fCHKDEFUNCT=0;
+  fCHKDEFUNCT = 0;
 
-  if(flagLineWrapping){
-    txt_indent="                                                        ";
+  if (flagLineWrapping) {
+    txt_indent = "                                                        ";
   }
 
-  ti_smhead="";
-  ti_rmhead="";
-  ti_smodd="";
-  ti_rmodd="";
-  ti_smeve="";
-  ti_rmeve="";
-  txt_fill="";
+  ti_smhead = "";
+  ti_rmhead = "";
+  ti_smodd = "";
+  ti_rmodd = "";
+  ti_smeve = "";
+  ti_rmeve = "";
+  txt_fill = "";
 
-  if(flagLineColor){
-    ti_dim="\33[2m";if(ENVIRON["TERM"]=="rosaterm")ti_dim="\33[9m";
-    ti_sgr0="\33[m";
+  if (flagLineColor) {
+    ti_dim = "\33[2m"; if (ENVIRON["TERM"] == "rosaterm") ti_dim = "\33[9m";
+    ti_sgr0 = "\33[m";
 
-    if(optionColorTheme=="dark"){
-      ti_defunct=ti_dim "\33[38;5;248m";
-      ti_smhead="\33[1;48;5;252;38;5;16m";
-      ti_smodd="\33[48;5;237;38;5;231m";
-      ti_smeve="\33[48;5;16;38;5;231m";
-    }else{
-      ti_defunct=ti_dim "\33[38;5;240m";
-      ti_smhead="\33[1;48;5;239;38;5;231m";
-      ti_smodd="\33[48;5;254;38;5;16m";
-      ti_smeve="\33[48;5;231;38;5;16m";
+    if (optionColorTheme == "dark") {
+      ti_defunct = ti_dim "\33[38;5;248m";
+      ti_smhead = "\33[1;48;5;252;38;5;16m";
+      ti_smodd = "\33[48;5;237;38;5;231m";
+      ti_smeve = "\33[48;5;16;38;5;231m";
+    } else {
+      ti_defunct = ti_dim "\33[38;5;240m";
+      ti_smhead = "\33[1;48;5;239;38;5;231m";
+      ti_smodd = "\33[48;5;254;38;5;16m";
+      ti_smeve = "\33[48;5;231;38;5;16m";
     }
 
-    ti_rmhead="\33[m";
-    ti_rmodd="\33[49;39m";
-    ti_rmeve="\33[49;39m";
+    ti_rmhead = "\33[m";
+    ti_rmodd = "\33[49;39m";
+    ti_rmeve = "\33[49;39m";
 
-    txt_fill_length=4;
-    txt_fill="    ";
-    while(txt_fill_length<SCREEN_WIDTH){
-      txt_fill=txt_fill txt_fill;
-      txt_fill_length*=2;
+    txt_fill_length = 4;
+    txt_fill = "    ";
+    while (txt_fill_length < SCREEN_WIDTH) {
+      txt_fill = txt_fill txt_fill;
+      txt_fill_length *= 2;
     }
-    txt_fill=slice(txt_fill,0,SCREEN_WIDTH);
+    txt_fill = slice(txt_fill, 0, SCREEN_WIDTH);
   }
 }
 
-/^psforest: mode=/{
-  sub(/^psforest: mode=/,"");
-  mode=$0;
-  if(mode=="cygps"){
+/^psforest: mode=/ {
+  sub(/^psforest: mode=/, "");
+  mode = $0;
+  if (mode == "cygps") {
     initialize_cygps();
-  }else if(mode=="macps"){
+  } else if (mode == "macps") {
     initialize_macps();
   }
-  next
+  next;
 }
 
 #-------------------------------------------------------------------------------
 # read wmic outputs
 
-mode=="wmic" && /^CommandLine\=/{
-  gsub(/^CommandLine\=("[^"]+"|[^"[:space:]]+|\r$)|\r$/,"",$0);
-  args=$0;
+mode == "wmic" && /^CommandLine\=/ {
+  gsub(/^CommandLine\=("[^"]+"|[^"[:space:]]+|\r$)|\r$/, "", $0);
+  args = $0;
   next;
 }
 
-mode=="wmic" && /^ParentProcessId\=/{
-  gsub(/^ParentProcessId\=|\r$/,"",$0);
-  ppid=$0;
+mode == "wmic" && /^ParentProcessId\=/ {
+  gsub(/^ParentProcessId\=|\r$/, "", $0);
+  ppid = $0;
   next;
 }
 
-mode=="wmic" && /^ProcessId\=/{
-  gsub(/^ProcessId\=|\r$/,"",$0);
-  winpid=$0;
-  data_wmic[winpid,"p"]=ppid;
-  data_wmic[winpid,"a"]=args;
-  #print winpid,ppid,substr(args,1,40)
+mode == "wmic" && /^ProcessId\=/ {
+  gsub(/^ProcessId\=|\r$/, "", $0);
+  winpid = $0;
+  data_wmic[winpid,"p"] = ppid;
+  data_wmic[winpid,"a"] = args;
+  #print winpid, ppid, substr(args, 1, 40)
   next;
 }
 
-mode=="wmic" && /^[[:space:]]*$/{
+mode == "wmic" && /^[[:space:]]*$/ {
   next;
 }
 
 #-------------------------------------------------------------------------------
 # read ls outputs
 
-mode=="ls" && /^\/proc\/[0-9]+\/root\/$/{
-  fCHKDEFUNCT=1;
-  gsub(/^\/proc\/|\/root\/$/,"");
-  proc_info[$0,"D"]=1;
+mode == "ls" && /^\/proc\/[0-9]+\/root\/$/ {
+  fCHKDEFUNCT = 1;
+  gsub(/^\/proc\/|\/root\/$/, "");
+  proc_info[$0, "D"] = 1;
   next;
 }
 
-mode=="ls" && /^\/proc\/.+\/root\/$/{
+mode == "ls" && /^\/proc\/.+\/root\/$/ {
   next;
 }
 
-mode=="cmdline" {
-  pid=$1;
-  sub(/^[0-9]+/,"");
-  proc_info[pid,"a"]=$0;
+mode == "cmdline" {
+  pid = $1;
+  sub(/^[0-9]+/, "");
+  proc_info[pid, "a"] = $0;
   next;
 }
 
@@ -138,73 +138,73 @@ mode=="cmdline" {
 ## @fn columns_initialize(head)
 ## @var[out] columns[index]
 ## @var[out] columns_label2index[label]
-function columns_initialize(head, _i,_offset,_width,_label){
-  columns_count=0;
-  _offset=0;
-  while(match(head, /[^[:space:]]+/)>0){
-    _i=columns_count++;
-    _label=substr(head,RSTART,RLENGTH);
-    _width=RSTART-1+RLENGTH;
-    columns[_i,"label"] =_label;
-    columns[_i,"offset"]=_offset;
-    columns[_i,"width"] =_width;
-    columns[_i,"wmax"]  =length(_label); # maximal width of values
-    columns[_i,"novf"]  =0;              # number of overflowing values
-    columns[_i,"skip"]  =columns_config[_label,"skip"];
-    columns[_i,"left"]  =columns_config[_label,"left"];
+function columns_initialize(head, _i, _offset, _width, _label) {
+  columns_count = 0;
+  _offset = 0;
+  while (match(head, /[^[:space:]]+/) > 0) {
+    _i = columns_count++;
+    _label = substr(head, RSTART, RLENGTH);
+    _width = RSTART - 1 + RLENGTH;
+    columns[_i,"label"]  = _label;
+    columns[_i,"offset"] = _offset;
+    columns[_i,"width"]  = _width;
+    columns[_i,"wmax"]   = length(_label); # maximal width of values
+    columns[_i,"novf"]   = 0;              # number of overflowing values
+    columns[_i,"skip"]   = columns_config[_label, "skip"];
+    columns[_i,"left"]   = columns_config[_label, "left"];
 
-    columns_label2index[_label]=_i;
-    columns_data["HEAD",_i]=_label;
+    columns_label2index[_label] = _i;
+    columns_data["HEAD", _i] = _label;
 
-    head=substr(head,_width+2);
-    _offset+=_width+1;
+    head=substr(head, _width + 2);
+    _offset += _width + 1;
   }
 }
 
-function columns_register(line, _l,_i,_value,_width,_len){
-  _l=columns_nline++;
-  for(_i=0;_i<columns_count-1;_i++){
-    _width=columns[_i,"width"];
-    _value=substr(line,1,_width);
-    line=substr(line,_width+1);
+function columns_register(line, _l, _i, _value, _width, _len) {
+  _l = columns_nline++;
+  for (_i = 0; _i < columns_count - 1; _i++) {
+    _width = columns[_i, "width"];
+    _value = substr(line, 1, _width);
+    line = substr(line, _width + 1);
 
     # read overflowing data
-    if(match(line,/^[^[:space:]]+/)>0){
-      _value=_value substr(line,1,RLENGTH);
-      line=substr(line,RLENGTH+1);
-      if(columns[_i,"left"])
-        line=sprintf("%*s",RLENGTH,"") line;
+    if (match(line, /^[^[:space:]]+/) > 0) {
+      _value = _value substr(line, 1, RLENGTH);
+      line = substr(line, RLENGTH + 1);
+      if (columns[_i, "left"])
+        line = sprintf("%*s", RLENGTH, "") line;
     }
 
-    _value=trim(_value);
-    _len=length(_value);
-    if(_len>_width)
-      columns[_i,"novf"]++;
-    if(_len>columns[_i,"wmax"])
-      columns[_i,"wmax"]=_len;
+    _value = trim(_value);
+    _len = length(_value);
+    if (_len > _width)
+      columns[_i, "novf"]++;
+    if (_len > columns[_i, "wmax"])
+      columns[_i, "wmax"] = _len;
 
-    columns_data[_l,_i]=_value;
+    columns_data[_l, _i] = _value;
 
     # skip space
-    line=substr(line,2);
+    line = substr(line, 2);
   }
 
   # the last column has an unlimited length
-  columns_data[_l,_i]=line;
+  columns_data[_l, _i] = line;
   return _l;
 }
 
-function columns_construct(iline, _ret,_label,_fmt){
-  if(iline=="")iline="HEAD";
+function columns_construct(iline, _ret, _label, _fmt) {
+  if (iline == "") iline = "HEAD";
 
-  _ret="";
-  for(_i=0;_i<columns_count-1;_i++){
-    if(columns[_i,"skip"])continue;
-    _fmt=columns[_i,"left"]?"%-*s ":"%*s ";
-    _ret=_ret sprintf(_fmt,columns[_i,"wmax"],columns_data[iline,_i]);
+  _ret = "";
+  for (_i = 0; _i < columns_count - 1; _i++) {
+    if (columns[_i, "skip"]) continue;
+    _fmt = columns[_i, "left"] ? "%-*s " : "%*s ";
+    _ret = _ret sprintf(_fmt, columns[_i, "wmax"], columns_data[iline, _i]);
   }
-  if(!columns[columns_count-1,"skip"])
-    _ret=_ret columns_data[iline,columns_count-1];
+  if (!columns[columns_count - 1, "skip"])
+    _ret = _ret columns_data[iline, columns_count - 1];
 
   return _ret;
 }
@@ -212,7 +212,7 @@ function columns_construct(iline, _ret,_label,_fmt){
 #-------------------------------------------------------------------------------
 # read ps outputs for cygwin
 
-function initialize_cygps(){
+function initialize_cygps() {
   #----------------------------------------------------------------------
   #  sample
   #----------------------------------------------------------------------
@@ -226,50 +226,50 @@ function initialize_cygps(){
   #      572    4080    4080        572    ? 1005   Jul 10 /usr/sbin/httpd2
   #     5728    4080    4080       5728    ? 1005   Jul 10 /usr/sbin/httpd2
   #----------------------------------------------------------------------
-  columns_config["COMMAND","skip"]=1;
-  columns_config["PPID","skip"]=1;
-  columns_config["TTY","left"]=1;
+  columns_config["COMMAND","skip"] = 1;
+  columns_config["PPID","skip"] = 1;
+  columns_config["TTY","left"] = 1;
   columns_initialize("S     PID    PPID    PGID     WINPID  TTY  UID    STIME COMMAND"); # default
 }
 
-mode=="cygps" && /^[[:space:]]*PID/ {
-  columns_initialize("S" substr($0,2));
+mode == "cygps" && /^[[:space:]]*PID/ {
+  columns_initialize("S" substr($0, 2));
   next;
 }
 
-function columns_getColumnByLabel(iline,label){
-  return columns_data[iline,columns_label2index[label]];
+function columns_getColumnByLabel(iline, label) {
+  return columns_data[iline, columns_label2index[label]];
 }
 
-function register_process(line, _pid,_ppid,_stat,_cmd,_iline){
+function register_process(line, _pid, _ppid, _stat, _cmd, _iline) {
   _iline=columns_register(line);
-  data_proc[iData,"i"]=columns_getColumnByLabel(_iline,"PID");
-  data_proc[iData,"p"]=columns_getColumnByLabel(_iline,"PPID");
-  data_proc[iData,"w"]=columns_getColumnByLabel(_iline,"WINPID");
-  data_proc[iData,"c"]=columns_getColumnByLabel(_iline,"COMMAND");
-  data_proc[iData,"N"]=0;
-  dict_proc[data_proc[iData,"i"]]=iData;
+  data_proc[iData, "i"] = columns_getColumnByLabel(_iline, "PID");
+  data_proc[iData, "p"] = columns_getColumnByLabel(_iline, "PPID");
+  data_proc[iData, "w"] = columns_getColumnByLabel(_iline, "WINPID");
+  data_proc[iData, "c"] = columns_getColumnByLabel(_iline, "COMMAND");
+  data_proc[iData, "N"] = 0;
+  dict_proc[data_proc[iData, "i"]] = iData;
   iData++;
 }
 
-mode=="cygps" {register_process($0);next;}
+mode == "cygps" { register_process($0); next; }
 
 #-------------------------------------------------------------------------------
 # read ps outputs for mac
 
-function initialize_macps(){
+function initialize_macps() {
   iColumnOfUser=6;
 }
 
-mode=="macps" && /^[[:space:]]*PPID/{
-  iColumnOfUser=index($0,"USER")-1;
-  output_header(substr($0,iColumnOfUser+1));
+mode == "macps" && /^[[:space:]]*PPID/ {
+  iColumnOfUser = index($0, "USER") - 1;
+  output_header(substr($0, iColumnOfUser + 1));
   next;
 }
 
-mode=="macps" && /^[[:space:]]*$/{next}
+mode == "macps" && /^[[:space:]]*$/{ next; }
 
-function register_process_mac(line, _pid,_ppid,_stat,_cmd,_arr,_iC0){
+function register_process_mac(line, _pid, _ppid, _stat, _cmd, _arr, _iC0) {
   #----------------------------------------------------------------------
   # sample: Mac OS X
   #----------------------------------------------------------------------
@@ -283,35 +283,35 @@ function register_process_mac(line, _pid,_ppid,_stat,_cmd,_arr,_iC0){
   #0         1         2         3         4         5         6         7
   #01234567890123456789012345678901234567890123456789012345678901234567890123456789
   #----------------------------------------------------------------------
-  split(line,_arr);
-  _iC0=index(line,_arr[10])+length(_arr[10]);if(_iC0<0)iC0=73;
-  data_proc[iData,"i"]=_arr[3];  # PID
-  data_proc[iData,"p"]=_arr[1];  # PPID
-  data_proc[iData,"s"]=slice(line,iColumnOfUser,_iC0);         # USER-STIME
-  data_proc[iData,"c"]=slice(line,_iC0);           # COMMAND
-  data_proc[iData,"N"]=0;
-  dict_proc[data_proc[iData,"i"]]=iData;
+  split(line, _arr);
+  _iC0 = index(line, _arr[10]) + length(_arr[10]); if(_iC0 < 0) iC0 = 73;
+  data_proc[iData,"i"] = _arr[3];  # PID
+  data_proc[iData,"p"] = _arr[1];  # PPID
+  data_proc[iData,"s"] = slice(line, iColumnOfUser, _iC0); # USER-STIME
+  data_proc[iData,"c"] = slice(line, _iC0);                # COMMAND
+  data_proc[iData,"N"] = 0;
+  dict_proc[data_proc[iData, "i"]] = iData;
   iData++;
 }
 
-mode=="macps" {register_process_mac($0);next;}
+mode == "macps" { register_process_mac($0); next; }
 
 #-------------------------------------------------------------------------------
 # read ps outputs for aix
 
-function initialize_aixps(){
-  iColumnOfUser=9;
+function initialize_aixps() {
+  iColumnOfUser = 9;
 }
 
-mode=="aixps" && /^[[:space:]]*PPID/{
-  iColumnOfUser=index($0,"PPID")+4;
-  output_header(substr($0,iColumnOfUser+1));
+mode == "aixps" && /^[[:space:]]*PPID/ {
+  iColumnOfUser = index($0, "PPID") + 4;
+  output_header(substr($0, iColumnOfUser + 1));
   next;
 }
 
-mode=="aixps" && /^[[:space:]]*$/{next}
+mode == "aixps" && /^[[:space:]]*$/ { next; }
 
-function register_process_aix(line, _pid,_ppid,_stat,_cmd){
+function register_process_aix(line, _pid, _ppid, _stat, _cmd) {
   #----------------------------------------------------------------------
   #  sample: AIX
   #----------------------------------------------------------------------
@@ -325,116 +325,116 @@ function register_process_aix(line, _pid,_ppid,_stat,_cmd){
   #0         1         2         3         4         5         6         7
   #01234567890123456789012345678901234567890123456789012345678901234567890123456789
   #----------------------------------------------------------------------
-  data_proc[iData,"i"]=trim(slice(line,17,24));  # PID
-  data_proc[iData,"p"]=trim(slice(line,0,7));    # PPID
-  data_proc[iData,"s"]=slice(line,9,73);         # USER-STIME
-  data_proc[iData,"c"]=slice(line,73);           # COMMAND
-  data_proc[iData,"N"]=0;
-  dict_proc[data_proc[iData,"i"]]=iData;
+  data_proc[iData,"i"] = trim(slice(line, 17, 24)); # PID
+  data_proc[iData,"p"] = trim(slice(line, 0, 7));   # PPID
+  data_proc[iData,"s"] = slice(line, 9, 73);        # USER-STIME
+  data_proc[iData,"c"] = slice(line, 73);           # COMMAND
+  data_proc[iData,"N"] = 0;
+  dict_proc[data_proc[iData,"i"]] = iData;
   iData++;
 }
 
-mode=="aixps" {register_process_aix($0);next;}
+mode == "aixps" { register_process_aix($0); next; }
 
 #-------------------------------------------------------------------------------
 
-function construct_tree( _i,_ppid,_pid,_iP){
-  for(_i=0;_i<iData;_i++){
-    _pid=data_proc[_i,"i"];
-    _winpid=data_proc[_i,"w"];
-    _ppid=data_proc[_i,"p"];
+function construct_tree( _i, _ppid, _pid, _iP) {
+  for (_i = 0; _i < iData; _i++) {
+    _pid = data_proc[_i, "i"];
+    _winpid = data_proc[_i, "w"];
+    _ppid = data_proc[_i, "p"];
 
     # check if it is <defunct>
-    if(fCHKDEFUNCT&&_ppid!="0"&&!proc_info[_pid,"D"])
-      data_proc[_i,"<defunct>"]=1;
+    if (fCHKDEFUNCT && _ppid != "0" && !proc_info[_pid, "D"])
+      data_proc[_i, "<defunct>"] = 1;
 
     # resolve ppid
-    if((_ppid=="0"||_ppid=="1")&&data_wmic[_winpid,"p"])
-      _ppid=data_wmic[_winpid,"p"];
-    if(_ppid==_pid)continue;
+    if ((_ppid == "0" || _ppid == "1") && data_wmic[_winpid, "p"])
+      _ppid = data_wmic[_winpid, "p"];
+    if (_ppid == _pid) continue;
 
-    _iP=dict_proc[_ppid];
-    if(_iP=="")continue;
+    _iP = dict_proc[_ppid];
+    if (_iP == "") continue;
 
-    data_proc[_iP,"L",data_proc[_iP,"N"]++]=_i;
-    data_proc[_i,"HAS_PPID"]=1;
+    data_proc[_iP, "L", data_proc[_iP, "N"]++] = _i;
+    data_proc[_i, "HAS_PPID"] = 1;
   }
 }
 
-function output_header(line){
-  if(flagLineColor)
-    print ti_smhead substr(line txt_fill,1,SCREEN_WIDTH) ti_rmhead;
+function output_header(line) {
+  if (flagLineColor)
+    print ti_smhead substr(line txt_fill, 1, SCREEN_WIDTH) ti_rmhead;
   else
     print line;
 }
 
-function proc_get_args(iProc, _ret, _winpid, _pid){
-  _winpid=data_proc[iProc,"w"];
-  _ret=data_wmic[_winpid,"a"];
-  if(_ret)return _ret;
+function proc_get_args(iProc, _ret, _winpid, _pid) {
+  _winpid = data_proc[iProc, "w"];
+  _ret = data_wmic[_winpid, "a"];
+  if (_ret) return _ret;
 
-  _pid=data_proc[iProc,"i"];
-  return proc_info[_pid,"a"];
+  _pid = data_proc[iProc, "i"];
+  return proc_info[_pid, "a"];
 }
 
-function output_process(iProc,head,head2, _stat,_cmd,_args,_i,_iN,_line,_txtbr, _ti1,_ti2){
-  _cmd=data_proc[iProc,"c"];
-  if(_cmd ~ /[^\\]$/)gsub(/^.+\\/,"",_cmd);
-  _args=proc_get_args(iProc);
-  _stat=columns_count?columns_construct(iProc):data_proc[iProc,"s"];
-  _line=_stat head _cmd _args;
-  _iN=data_proc[iProc,"N"];
+function output_process(iProc, head, head2, _stat, _cmd, _args, _i, _iN, _line, _txtbr, _ti1, _ti2) {
+  _cmd = data_proc[iProc, "c"];
+  if (_cmd ~ /[^\\]$/) gsub(/^.+\\/, "", _cmd);
+  _args = proc_get_args(iProc);
+  _stat = columns_count ? columns_construct(iProc) : data_proc[iProc, "s"];
+  _line = _stat head _cmd _args;
+  _iN = data_proc[iProc, "N"];
 
-  _ti1="";_ti2="";
-  if(flagLineColor){
-    if(outputProcessCount%2==1){
-      _ti1=_ti1 ti_smodd;
-      _ti2=ti_rmodd _ti2;
-    }else{
-      _ti1=_ti1 ti_smeve;
-      _ti2=ti_rmeve _ti2;
+  _ti1 = "";_ti2 = "";
+  if (flagLineColor) {
+    if (outputProcessCount % 2 == 1) {
+      _ti1 = _ti1 ti_smodd;
+      _ti2 = ti_rmodd _ti2;
+    } else {
+      _ti1 = _ti1 ti_smeve;
+      _ti2 = ti_rmeve _ti2;
     }
-    if(data_proc[iProc,"<defunct>"]){
-      _ti1=_ti1 ti_defunct;
-      _ti2=ti_sgr0 _ti2;
+    if (data_proc[iProc, "<defunct>"]) {
+      _ti1 = _ti1 ti_defunct;
+      _ti2 = ti_sgr0 _ti2;
     }
   }
 
-  if(flagLineWrapping){
-    print _ti1 substr(_line txt_fill,1,SCREEN_WIDTH) _ti2;
-    if(flagLineWrapping!="truncate" && length(_line)>SCREEN_WIDTH){
-      _txtbr=_iN==0?"  ":" |  ";
-      _txtbr=substr(txt_indent head2 _txtbr,1,SCREEN_WIDTH-40)
-      do{
-        _line=_txtbr substr(_line,SCREEN_WIDTH+1);
-        print _ti1 substr(_line txt_fill,1,SCREEN_WIDTH) _ti2;
-      }while(length(_line)>SCREEN_WIDTH);
+  if (flagLineWrapping) {
+    print _ti1 substr(_line txt_fill, 1, SCREEN_WIDTH) _ti2;
+    if(flagLineWrapping != "truncate" && length(_line) > SCREEN_WIDTH) {
+      _txtbr = _iN == 0 ? "  " : " |  ";
+      _txtbr = substr(txt_indent head2 _txtbr, 1, SCREEN_WIDTH - 40)
+      do {
+        _line = _txtbr substr(_line, SCREEN_WIDTH + 1);
+        print _ti1 substr(_line txt_fill, 1, SCREEN_WIDTH) _ti2;
+      } while (length(_line) > SCREEN_WIDTH);
     }
-  }else{
+  } else {
     print _ti1 _line _ti2;
   }
 
   outputProcessCount++;
 
-  for(_i=0;_i<_iN;_i++)
-    output_process(data_proc[iProc,"L",_i],head2 " \\_ ",head2 " " (_i+1==_iN?"   ":"|  "));
+  for (_i = 0; _i < _iN; _i++)
+    output_process(data_proc[iProc, "L", _i], head2 " \\_ ", head2 " " (_i + 1 == _iN ? "   " : "|  "));
 }
 
-mode=="pass"{print;}
+mode == "pass" { print; }
 
-END{
+END {
   construct_tree();
 
-  if(columns_count){
-    head=columns_construct("HEAD");
-    txt_indent=sprintf("%*s",length(head),"");
+  if (columns_count) {
+    head = columns_construct("HEAD");
+    txt_indent = sprintf("%*s", length(head), "");
     output_header(head "COMMAND");
   }
 
-  outputProcessCount=0;
-  for(i=0;i<iData;i++){
-    p=data_proc[i,"p"];
-    if(data_proc[i,"HAS_PPID"])continue;
-    output_process(i,"","");
+  outputProcessCount = 0;
+  for (i = 0; i < iData; i++) {
+    p = data_proc[i, "p"];
+    if (data_proc[i, "HAS_PPID"]) continue;
+    output_process(i, "", "");
   }
 }
