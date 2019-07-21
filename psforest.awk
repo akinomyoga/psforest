@@ -285,11 +285,11 @@ function register_process_mac(line, _pid, _ppid, _stat, _cmd, _arr, _iC0) {
   #----------------------------------------------------------------------
   split(line, _arr);
   _iC0 = index(line, _arr[10]) + length(_arr[10]); if(_iC0 < 0) iC0 = 73;
-  data_proc[iData,"i"] = _arr[3];  # PID
-  data_proc[iData,"p"] = _arr[1];  # PPID
-  data_proc[iData,"s"] = slice(line, iColumnOfUser, _iC0); # USER-STIME
-  data_proc[iData,"c"] = slice(line, _iC0);                # COMMAND
-  data_proc[iData,"N"] = 0;
+  data_proc[iData, "i"] = _arr[3];  # PID
+  data_proc[iData, "p"] = _arr[1];  # PPID
+  data_proc[iData, "s"] = slice(line, iColumnOfUser, _iC0); # USER-STIME
+  data_proc[iData, "c"] = slice(line, _iC0);                # COMMAND
+  data_proc[iData, "N"] = 0;
   dict_proc[data_proc[iData, "i"]] = iData;
   iData++;
 }
@@ -325,11 +325,11 @@ function register_process_aix(line, _pid, _ppid, _stat, _cmd) {
   #0         1         2         3         4         5         6         7
   #01234567890123456789012345678901234567890123456789012345678901234567890123456789
   #----------------------------------------------------------------------
-  data_proc[iData,"i"] = trim(slice(line, 17, 24)); # PID
-  data_proc[iData,"p"] = trim(slice(line, 0, 7));   # PPID
-  data_proc[iData,"s"] = slice(line, 9, 73);        # USER-STIME
-  data_proc[iData,"c"] = slice(line, 73);           # COMMAND
-  data_proc[iData,"N"] = 0;
+  data_proc[iData, "i"] = trim(slice(line, 17, 24)); # PID
+  data_proc[iData, "p"] = trim(slice(line, 0, 7));   # PPID
+  data_proc[iData, "s"] = slice(line, 9, 73);        # USER-STIME
+  data_proc[iData, "c"] = slice(line, 73);           # COMMAND
+  data_proc[iData, "N"] = 0;
   dict_proc[data_proc[iData,"i"]] = iData;
   iData++;
 }
