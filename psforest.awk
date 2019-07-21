@@ -86,19 +86,19 @@ BEGIN {
 #-------------------------------------------------------------------------------
 # read wmic outputs
 
-mode == "wmic" && /^CommandLine\=/ {
+mode == "wmic" && /^CommandLine=/ {
   gsub(/^CommandLine\=("[^"]+"|[^"[:space:]]+|\r$)|\r$/, "", $0);
   args = $0;
   next;
 }
 
-mode == "wmic" && /^ParentProcessId\=/ {
+mode == "wmic" && /^ParentProcessId=/ {
   gsub(/^ParentProcessId\=|\r$/, "", $0);
   ppid = $0;
   next;
 }
 
-mode == "wmic" && /^ProcessId\=/ {
+mode == "wmic" && /^ProcessId=/ {
   gsub(/^ProcessId\=|\r$/, "", $0);
   winpid = $0;
   data_wmic[winpid,"p"] = ppid;
