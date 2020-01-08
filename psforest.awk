@@ -1,7 +1,10 @@
 #!/bin/gawk -f
 
 function max(a, b) {
-  return a > b ? a : b;
+  return a >= b ? a : b;
+}
+function min(a, b) {
+  return a <= b ? a : b;
 }
 function slice(str, start, end) {
   if (end == "")
@@ -25,8 +28,6 @@ BEGIN {
     SCREEN_WIDTH = max(80, or(0, ENVIRON["COLUMNS"])) - 1;
 
   iData = 0;
-
-  initialize_cygps();
 
   fCHKDEFUNCT = 0;
 
@@ -135,33 +136,44 @@ mode == "cmdline" {
 #-------------------------------------------------------------------------------
 # columns functions
 
-## @fn columns_initialize(head)
+## @fn columns_initialize(head_line)
 ## @var[out] columns[index]
 ## @var[out] columns_label2index[label]
-function columns_initialize(head, _i, _offset, _width, _label) {
+function columns_initialize(head_line, _tail, _i, _offset, _width, _label) {
   columns_count = 0;
   _offset = 0;
-  while (match(head, /[^[:space:]]+/) > 0) {
+  _tail = head_line;
+  while (match(_tail, /[^[:space:]]+/) > 0) {
     _i = columns_count++;
-    _label = substr(head, RSTART, RLENGTH);
+    _label = substr(_tail, RSTART, RLENGTH);
     _width = RSTART - 1 + RLENGTH;
     columns[_i,"label"]  = _label;
     columns[_i,"offset"] = _offset;
     columns[_i,"width"]  = _width;
     columns[_i,"wmax"]   = length(_label); # maximal width of values
     columns[_i,"novf"]   = 0;              # number of overflowing values
-    columns[_i,"skip"]   = columns_config[_label, "skip"];
-    columns[_i,"left"]   = columns_config[_label, "left"];
+    columns[_i,"hidden"]   = columns_config[_label, "hidden"];
+    columns[_i,"align"]  = columns_config[_label, "align"];
+
+    _tail = substr(_tail, _width + 2);
+    _offset += _width + 1;
+
+    #    PREV     LABEL            NEXT
+    # offset-><-width->
+    #                  <-rmargin->
+
+    # rmagin: maximal padding on overflow
+    _rmargin = 0;
+    if (match(_tail, /^[[:space:]]+/) > 0)
+      _rmargin = RLENGTH;
+    columns[_i, "rmargin"] = _rmargin;
 
     columns_label2index[_label] = _i;
     columns_data["HEAD", _i] = _label;
-
-    head=substr(head, _width + 2);
-    _offset += _width + 1;
   }
 }
 
-function columns_register(line, _l, _i, _value, _width, _len) {
+function columns_register(line, _l, _i, _value, _width, _len, _lpad) {
   _l = columns_nline++;
   for (_i = 0; _i < columns_count - 1; _i++) {
     _width = columns[_i, "width"];
@@ -172,8 +184,12 @@ function columns_register(line, _l, _i, _value, _width, _len) {
     if (match(line, /^[^[:space:]]+/) > 0) {
       _value = _value substr(line, 1, RLENGTH);
       line = substr(line, RLENGTH + 1);
-      if (columns[_i, "left"])
-        line = sprintf("%*s", RLENGTH, "") line;
+
+      if (columns[_i, "align"] != "right") {
+        _lpad = min(RLENGTH, columns[_i, "rmargin"]);
+        #_lpad = RLENGTH;
+        line = sprintf("%*s", _lpad, "") line;
+      }
     }
 
     _value = trim(_value);
@@ -199,11 +215,11 @@ function columns_construct(iline, _ret, _label, _fmt) {
 
   _ret = "";
   for (_i = 0; _i < columns_count - 1; _i++) {
-    if (columns[_i, "skip"]) continue;
-    _fmt = columns[_i, "left"] ? "%-*s " : "%*s ";
+    if (columns[_i, "hidden"]) continue;
+    _fmt = columns[_i, "align"] == "left" ? "%-*s " : "%*s ";
     _ret = _ret sprintf(_fmt, columns[_i, "wmax"], columns_data[iline, _i]);
   }
-  if (!columns[columns_count - 1, "skip"])
+  if (!columns[columns_count - 1, "hidden"])
     _ret = _ret columns_data[iline, columns_count - 1];
 
   return _ret;
@@ -226,9 +242,9 @@ function initialize_cygps() {
   #      572    4080    4080        572    ? 1005   Jul 10 /usr/sbin/httpd2
   #     5728    4080    4080       5728    ? 1005   Jul 10 /usr/sbin/httpd2
   #----------------------------------------------------------------------
-  columns_config["COMMAND","skip"] = 1;
-  columns_config["PPID","skip"] = 1;
-  columns_config["TTY","left"] = 1;
+  columns_config["COMMAND", "hidden"] = 1;
+  columns_config["PPID", "hidden"] = 1;
+  columns_config["TTY", "align"] = "left";
   columns_initialize("S     PID    PPID    PGID     WINPID  TTY  UID    STIME COMMAND"); # default
 }
 
@@ -237,8 +253,10 @@ mode == "cygps" && /^[[:space:]]*PID/ {
   next;
 }
 
-function columns_getColumnByLabel(iline, label) {
-  return columns_data[iline, columns_label2index[label]];
+function columns_getColumnByLabel(iline, label, _index) {
+  _index = columns_label2index[label];
+  if (_index == "") return "";
+  return columns_data[iline, _index];
 }
 
 function register_process(line, _pid, _ppid, _stat, _cmd, _iline) {
@@ -258,18 +276,6 @@ mode == "cygps" { register_process($0); next; }
 # read ps outputs for mac
 
 function initialize_macps() {
-  iColumnOfUser=6;
-}
-
-mode == "macps" && /^[[:space:]]*PPID/ {
-  iColumnOfUser = index($0, "USER") - 1;
-  output_header(substr($0, iColumnOfUser + 1));
-  next;
-}
-
-mode == "macps" && /^[[:space:]]*$/{ next; }
-
-function register_process_mac(line, _pid, _ppid, _stat, _cmd, _arr, _iC0) {
   #----------------------------------------------------------------------
   # sample: Mac OS X
   #----------------------------------------------------------------------
@@ -280,15 +286,48 @@ function register_process_mac(line, _pid, _ppid, _stat, _cmd, _arr, _iC0) {
   #    1 root        43   0.0  0.0  2464112 ??       Ss    4:30AM   0:00.38 /usr/sbin/securityd -i
   #    1 _clamav     52   0.0  0.0  2435956 ??       Ss    4:30AM   0:00.55 freshclam -d -c 4
   #----------------------------------------------------------------------
+  # sample: FreeBSD
+  #----------------------------------------------------------------------
+  # PPID USER     PID %CPU  %MEM     VSZ TTY   STAT STARTED      TIME COMMAND
+  #    0 root       0  0.0   0.0       0 -     DLs  23:48     0:58.48 [kernel]
+  #    0 root       1  0.0   0.1    3476 -     ILs  23:48     0:00.02 /sbin/init --
+  #    0 root       2  0.0   0.0       0 -     DL   23:48     0:00.00 [crypto]
+  #    0 root       3  0.0   0.0       0 -     DL   23:48     0:00.00 [crypto returns 0]
+  #----------------------------------------------------------------------
   #0         1         2         3         4         5         6         7
   #01234567890123456789012345678901234567890123456789012345678901234567890123456789
   #----------------------------------------------------------------------
-  split(line, _arr);
-  _iC0 = index(line, _arr[10]) + length(_arr[10]); if(_iC0 < 0) iC0 = 73;
-  data_proc[iData, "i"] = _arr[3];  # PID
-  data_proc[iData, "p"] = _arr[1];  # PPID
-  data_proc[iData, "s"] = slice(line, iColumnOfUser, _iC0); # USER-STIME
-  data_proc[iData, "c"] = slice(line, _iC0);                # COMMAND
+  DEFAULT_HEAD_FREEBSD = "PPID USER    PID %CPU  %MEM     VSZ TTY   STAT STARTED      TIME COMMAND";
+  DEFAULT_HEAD_MACOS   = "PPID USER       PID  %CPU %MEM      VSZ TTY      STAT STARTED      TIME ARGS";
+
+  # detailed settings
+  columns_config["PPID", "hidden"] = 1;
+  columns_config["USER", "align"] = "left";
+  columns_config["TTY", "align"] = "left";
+  columns_config["STAT", "align"] = "left";
+  columns_config["ARGS", "hidden"] = 1;
+  columns_config["COMMAND", "hidden"] = 1;
+  columns_initialize(DFAULT_HEAD_MACOS);
+}
+
+mode == "macps" && /^[[:space:]]*PPID/ {
+  columns_initialize($0);
+  next;
+}
+
+mode == "macps" && /^[[:space:]]*$/{ next; }
+
+function register_process_mac(line, _iline, _ppid, _pid, _command) {
+  _iline = columns_register(line);
+  _ppid = columns_data[_iline, 0];
+  _pid = columns_data[_iline, 2];
+  _command = columns_getColumnByLabel(_iline, "COMMAND");
+  if (_command == "")
+    _command = columns_getColumnByLabel(_iline, "ARGS");
+
+  data_proc[iData, "i"] = _pid;
+  data_proc[iData, "p"] = _ppid;
+  data_proc[iData, "c"] = _command;
   data_proc[iData, "N"] = 0;
   dict_proc[data_proc[iData, "i"]] = iData;
   iData++;
@@ -300,7 +339,7 @@ mode == "macps" { register_process_mac($0); next; }
 # read ps outputs for aix
 
 function initialize_aixps() {
-  iColumnOfUser = 9;
+  iColumnOfUser = 8;
 }
 
 mode == "aixps" && /^[[:space:]]*PPID/ {
