@@ -154,6 +154,9 @@ fi
   elif [[ $OSTYPE == aix* ]]; then
     echo "psforest: mode=aixps"
     ps -A -o ppid,user,pid,pcpu,pmem,vsize,tty,stat,start,time,args
+  elif [[ $OSTYPE == minix* ]]; then
+    echo "psforest: mode=minix"
+    ps el
   else
     ps uaxf
   fi

@@ -227,6 +227,8 @@ BEGIN {
     initialize_cygps();
   } else if (mode == "macps") {
     initialize_macps();
+  } else if (mode == "minix") {
+    initialize_minix();
   }
   next;
 }
@@ -492,6 +494,49 @@ function register_process_mac(line, _iline, _ppid, _pid, _command) {
 }
 
 mode == "macps" { register_process_mac($0); next; }
+
+#-------------------------------------------------------------------------------
+# read ps outputs for minix
+
+function initialize_minix() {
+  #----------------------------------------------------------------------
+  # sample: minix
+  #----------------------------------------------------------------------
+  # ST UID   PID  PPID  PGRP     SZ         RECV TTY  TIME CMD
+  #  S 1000   354     1   354  15312    (wait) pm  co  0:03 -bash
+  #  S 1000   458   354   354   2304 (select) vfs  co  0:02 ssh -R 52222:127.0.0.1:22 hp2019
+  #  S 1000   459   458   354    780 (select) vfs  co  0:06 nc 162.105.13.50 22
+  #----------------------------------------------------------------------
+  DEFAULT_HEAD_MINIX = "PST UID   PID  PPID  PGRP     SZ         RECV TTY  TIME CMD";
+
+  # detailed settings
+  columns_config["PPID", "hidden"] = 1;
+  columns_config["CMD", "hidden"] = 1;
+  columns_initialize(DFAULT_HEAD_MINIX);
+}
+
+mode == "minix" && /^[[:space:]]*ST/ {
+  columns_initialize($0);
+  next;
+}
+
+mode == "minix" && /^[[:space:]]*$/ { next; }
+
+function register_process_minix(line, _iline, _ppid, _pid, _command) {
+  _iline = columns_register(line);
+  _ppid = columns_data[_iline, 3];
+  _pid = columns_data[_iline, 2];
+  _command = columns_getColumnByLabel(_iline, "CMD");
+
+  data_proc[iData, "i"] = _pid;
+  data_proc[iData, "p"] = _ppid;
+  data_proc[iData, "c"] = _command;
+  data_proc[iData, "N"] = 0;
+  dict_proc[data_proc[iData, "i"]] = iData;
+  iData++;
+}
+
+mode == "minix" { register_process_minix($0); next; }
 
 #-------------------------------------------------------------------------------
 # read ps outputs for aix
