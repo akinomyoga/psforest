@@ -17,6 +17,153 @@ function trim(str) {
   return str;
 }
 
+#------------------------------------------------------------------------------
+# wcwidth
+
+function ord_initialize(_, i) {
+  for (i = 0; i < 128; i++)
+    ord_cache[sprintf("%c", i)] = i;
+}
+
+function ord(c, _, l, u, m) {
+  if ((l = ord_cache[c]) != "") return l;
+  l = 128;
+  u = 0x110000;
+  if (!(sprintf("%c", l) <= c && c <=  sprintf("%c", u - 1))) return 0xFFFD;
+  while (l + 1 < u) {
+    if (c < sprintf("%c", m = int((l + u) / 2))) {
+      u = m;
+    } else {
+      l = m;
+    }
+  }
+  ord_cache[c] = l;
+  return l;
+}
+
+function c2w_initialize(_, list) {
+  ord_initialize();
+
+  # 半角スペース
+  c2w_non_zenkaku[0x303F] = 1;
+
+  # 絵文字
+  c2w_non_zenkaku[0x3030] = -2;
+  c2w_non_zenkaku[0x303d] = -2;
+  c2w_non_zenkaku[0x3297] = -2;
+  c2w_non_zenkaku[0x3299] = -2;
+
+  # Table c2w_east_wranges
+  list = " 161 162 164 165 167 169 170 171 174 175 176 181 182 187 188 192 198 199 208 209";
+  list = list " 215 217 222 226 230 231 232 235 236 238 240 241 242 244 247 251 252 253 254 255";
+  list = list " 257 258 273 274 275 276 283 284 294 296 299 300 305 308 312 313 319 323 324 325";
+  list = list " 328 332 333 334 338 340 358 360 363 364 462 463 464 465 466 467 468 469 470 471";
+  list = list " 472 473 474 475 476 477 593 594 609 610 708 709 711 712 713 716 717 718 720 721";
+  list = list " 728 732 733 734 735 736 913 930 931 938 945 962 963 970 1025 1026 1040 1104 1105 1106";
+  list = list " 8208 8209 8211 8215 8216 8218 8220 8222 8224 8227 8228 8232 8240 8241 8242 8244 8245 8246 8251 8252";
+  list = list " 8254 8255 8308 8309 8319 8320 8321 8325 8364 8365 8451 8452 8453 8454 8457 8458 8467 8468 8470 8471";
+  list = list " 8481 8483 8486 8487 8491 8492 8531 8533 8539 8543 8544 8556 8560 8570 8592 8602 8632 8634 8658 8659";
+  list = list " 8660 8661 8679 8680 8704 8705 8706 8708 8711 8713 8715 8716 8719 8720 8721 8722 8725 8726 8730 8731";
+  list = list " 8733 8737 8739 8740 8741 8742 8743 8749 8750 8751 8756 8760 8764 8766 8776 8777 8780 8781 8786 8787";
+  list = list " 8800 8802 8804 8808 8810 8812 8814 8816 8834 8836 8838 8840 8853 8854 8857 8858 8869 8870 8895 8896";
+  list = list " 8978 8979 9312 9450 9451 9548 9552 9588 9600 9616 9618 9622 9632 9634 9635 9642 9650 9652 9654 9656";
+  list = list " 9660 9662 9664 9666 9670 9673 9675 9676 9678 9682 9698 9702 9711 9712 9733 9735 9737 9738 9742 9744";
+  list = list " 9748 9750 9756 9757 9758 9759 9792 9793 9794 9795 9824 9826 9827 9830 9831 9835 9836 9838 9839 9840";
+  list = list " 10045 10046 10102 10112 57344 63744 65533 65534 983040 1048574 1048576 1114110";
+  c2w_east_wranges_count = split(list, c2w_east_wranges);
+}
+
+function c2w_unambiguous(code) {
+  if (code<0xA0) return 1;
+  if (code < 0xFB00) {
+    if (0x2E80 <= code && code < 0xA4D0 && !c2w_non_zenkaku[code]) return 2;
+    if (0xAC00<=code&&code<0xD7A4) return 2;
+    if (0xF900<=code) return 2;
+    if (0x1100<=code&&code<0x1160) return 2;
+    if (code==0x2329||code==0x232A) return 2;
+  } else if (code<0x10000) {
+    if (0xFF00<=code&&code<0xFF61) return 2;
+    if (0xFE30<=code&&code<0xFE70) return 2;
+    if (0xFFE0<=code&&code<0xFFE7) return 2;
+  } else {
+    if (0x20000<=code&&code<0x2FFFE) return 2;
+    if (0x30000<=code&&code<0x3FFFE) return 2;
+  }
+  return -1;
+}
+
+function c2w_east(code, _, w, l, u, m) {
+  w = c2w_unambiguous(code);
+  if (w >= 0) return w;
+
+  # if (c2w_emoji_enabled && c2w_is_emoji(code))
+  #   return c2w_emoji_width;
+
+  l = 1;
+  u = c2w_east_wranges_count + 1;
+  if (code < c2w_east_wranges[l]) return 1;
+  if (code >= c2w_east_wranges[u - 1]) return 1;
+  while (l + 1 < u) {
+    if (c2w_east_wranges[m = (l + u) / 2] <= code)
+      l = m;
+    else
+      u = m;
+  }
+  return l % 2 == 0 ? 2 : 1;
+}
+
+function c2w_west(code, _, w) {
+  w = c2w_unambiguous(code);
+  if (w >= 0) return w;
+
+  # if (c2w_emoji_enabled && c2w_is_emoji(code))
+  #   return c2w_emoji_width;
+
+  return 1;
+}
+
+function s2w(s) {
+  return c2w_east(ord(s));
+}
+
+function str2w(str) {
+  ret = 0;
+  while (match(str, /^[ -~]+|^./)) {
+    ret += RLENGTH > 1 ? RLENGTH : s2w(substr(str, 1, 1));
+    str = substr(str, 1 + RLENGTH);
+  }
+  return ret;
+}
+
+function c2w_slice(str, beg, end, _, ret, x, ml, ms, w) {
+  ret = ""; x = 0;
+  while (match(str, /^[ -~]+|^./)) {
+    ml = RLENGTH;
+    ms = substr(str, 1, RLENGTH);
+    if (RLENGTH > 1) {
+      if (beg < x + ml && x < end) {
+        if (x < beg) {
+          ml -= beg - x;
+          ms = substr(ms, beg - x + 1);
+          x = beg;
+        }
+        ret = ret substr(ms, 1, end - x);
+      }
+      x += ml;
+    } else {
+      w = s2w(ms);
+      if (beg <= x && x + w < end)
+        ret = ret ms;
+      x += w;
+    }
+    if (x >= end) break;
+    str = substr(str, 1 + RLENGTH);
+  }
+  return ret;
+}
+
+#------------------------------------------------------------------------------
+
 BEGIN {
   mode = "pass";
   flagLineColor = ENVIRON["flagLineColor"];
@@ -173,12 +320,17 @@ function columns_initialize(head_line, _tail, _i, _offset, _width, _label) {
   }
 }
 
-function columns_register(line, _l, _i, _value, _width, _len, _lpad) {
+function columns_register(line, _l, _i, _width, _value, _vlen, _len, _lpad) {
   _l = columns_nline++;
   for (_i = 0; _i < columns_count - 1; _i++) {
     _width = columns[_i, "width"];
-    _value = substr(line, 1, _width);
-    line = substr(line, _width + 1);
+    if (USE_C2W) {
+      _value = c2w_slice(line, 0, _width);
+      line = substr(line, length(_value) + 1);
+    } else {
+      _value = substr(line, 1, _width);
+      line = substr(line, _width + 1);
+    }
 
     # read overflowing data
     if (match(line, /^[^[:space:]]+/) > 0) {
@@ -186,14 +338,14 @@ function columns_register(line, _l, _i, _value, _width, _len, _lpad) {
       line = substr(line, RLENGTH + 1);
 
       if (columns[_i, "align"] != "right") {
-        _lpad = min(RLENGTH, columns[_i, "rmargin"]);
-        #_lpad = RLENGTH;
+        _lpad = USE_C2W ? str2w(_value) - _width : RLENGTH;
+        _lpad = min(_lpad, columns[_i, "rmargin"]);
         line = sprintf("%*s", _lpad, "") line;
       }
     }
 
     _value = trim(_value);
-    _len = length(_value);
+    _len = USE_C2W ? str2w(_value) : length(_value);
     if (_len > _width)
       columns[_i, "novf"]++;
     if (_len > columns[_i, "wmax"])
@@ -210,14 +362,17 @@ function columns_register(line, _l, _i, _value, _width, _len, _lpad) {
   return _l;
 }
 
-function columns_construct(iline, _ret, _label, _fmt) {
+function columns_construct(iline, _ret, _label, _fmt, _wmax, _data) {
   if (iline == "") iline = "HEAD";
 
   _ret = "";
   for (_i = 0; _i < columns_count - 1; _i++) {
     if (columns[_i, "hidden"]) continue;
     _fmt = columns[_i, "align"] == "left" ? "%-*s " : "%*s ";
-    _ret = _ret sprintf(_fmt, columns[_i, "wmax"], columns_data[iline, _i]);
+    _wmax = columns[_i, "wmax"];
+    _data = columns_data[iline, _i];
+    if (USE_C2W) _wmax -= str2w(_data) - length(_data);
+    _ret = _ret sprintf(_fmt, _wmax, _data);
   }
   if (!columns[columns_count - 1, "hidden"])
     _ret = _ret columns_data[iline, columns_count - 1];
@@ -308,6 +463,9 @@ function initialize_macps() {
   columns_config["ARGS", "hidden"] = 1;
   columns_config["COMMAND", "hidden"] = 1;
   columns_initialize(DFAULT_HEAD_MACOS);
+
+  USE_C2W = 1;
+  c2w_initialize();
 }
 
 mode == "macps" && /^[[:space:]]*PPID/ {
@@ -441,7 +599,7 @@ function output_process(iProc, head, head2, _stat, _cmd, _args, _i, _iN, _line, 
 
   if (flagLineWrapping) {
     print _ti1 substr(_line txt_fill, 1, SCREEN_WIDTH) _ti2;
-    if(flagLineWrapping != "truncate" && length(_line) > SCREEN_WIDTH) {
+    if (flagLineWrapping != "truncate" && length(_line) > SCREEN_WIDTH) {
       _txtbr = _iN == 0 ? "  " : " |  ";
       _txtbr = substr(txt_indent head2 _txtbr, 1, SCREEN_WIDTH - 40)
       do {
