@@ -42,6 +42,8 @@ function ord(c, _, l, u, m) {
 }
 
 function c2w_initialize(_, list) {
+  USE_C2W = 1;
+
   ord_initialize();
 
   # 半角スペース
@@ -74,7 +76,7 @@ function c2w_initialize(_, list) {
 }
 
 function c2w_unambiguous(code) {
-  if (code<0xA0) return 1;
+  if (code < 0xA0) return 1;
   if (code < 0xFB00) {
     if (0x2E80 <= code && code < 0xA4D0 && !c2w_non_zenkaku[code]) return 2;
     if (0xAC00<=code&&code<0xD7A4) return 2;
@@ -174,8 +176,6 @@ BEGIN {
   if (ENVIRON["COLUMNS"] != "")
     SCREEN_WIDTH = max(80, or(0, ENVIRON["COLUMNS"])) - 1;
 
-  iData = 0;
-
   fCHKDEFUNCT = 0;
 
   if (flagLineWrapping) {
@@ -229,6 +229,10 @@ BEGIN {
     initialize_macps();
   } else if (mode == "minix") {
     initialize_minix();
+  } else if (mode == "aixps") {
+    initialize_aixps();
+  } else if (mode == "procps") {
+    initialize_procps();
   }
   next;
 }
@@ -301,7 +305,7 @@ function columns_initialize(head_line, _tail, _i, _offset, _width, _label) {
     columns[_i,"width"]  = _width;
     columns[_i,"wmax"]   = length(_label); # maximal width of values
     columns[_i,"novf"]   = 0;              # number of overflowing values
-    columns[_i,"hidden"]   = columns_config[_label, "hidden"];
+    columns[_i,"hidden"] = columns_config[_label, "hidden"];
     columns[_i,"align"]  = columns_config[_label, "align"];
 
     _tail = substr(_tail, _width + 2);
@@ -317,13 +321,18 @@ function columns_initialize(head_line, _tail, _i, _offset, _width, _label) {
       _rmargin = RLENGTH;
     columns[_i, "rmargin"] = _rmargin;
 
+    # 末尾で align 調整が起こる事を意味する。
+    # 今までに起こった overflow による ずれを rmargin で解消する。
+    columns[_i,"unshift"] = columns_config[_label, "unshift"];
+
     columns_label2index[_label] = _i;
     columns_data["HEAD", _i] = _label;
   }
 }
 
-function columns_register(line, _l, _i, _width, _value, _vlen, _len, _lpad) {
+function columns_register(line, _l, _i, _width, _value, _vlen, _len, _lpad, _shift) {
   _l = columns_nline++;
+  _shift = 0;
   for (_i = 0; _i < columns_count - 1; _i++) {
     _width = columns[_i, "width"];
     if (USE_C2W) {
@@ -341,8 +350,11 @@ function columns_register(line, _l, _i, _width, _value, _vlen, _len, _lpad) {
 
       if (columns[_i, "align"] != "right") {
         _lpad = USE_C2W ? str2w(_value) - _width : RLENGTH;
+        _shift += max(0, _lpad - columns[_i, "rmargin"]);
         _lpad = min(_lpad, columns[_i, "rmargin"]);
         line = sprintf("%*s", _lpad, "") line;
+      } else {
+        _shift += RLENGTH;
       }
     }
 
@@ -357,11 +369,26 @@ function columns_register(line, _l, _i, _width, _value, _vlen, _len, _lpad) {
 
     # skip space
     line = substr(line, 2);
+
+    # Note: procps はセルに収まらないフィールドでずれても、特定の列で
+    # ずれが元に戻る。恐らくフィールドのグループ毎に再び横位置合わせを
+    # している。
+    if (_shift && columns[_i, "unshift"]) {
+      line = sprintf("%*s", min(_shift, columns[_i, "rmargin"]), "") line;
+      _shift = 0;
+    }
+
   }
 
   # the last column has an unlimited length
   columns_data[_l, _i] = line;
   return _l;
+}
+
+function columns_getColumnByLabel(iline, label, _index) {
+  _index = columns_label2index[label];
+  if (_index == "") return "";
+  return columns_data[iline, _index];
 }
 
 function columns_construct(iline, _ret, _label, _fmt, _wmax, _data) {
@@ -386,6 +413,8 @@ function columns_construct(iline, _ret, _label, _fmt, _wmax, _data) {
 # read ps outputs for cygwin
 
 function initialize_cygps() {
+  USE_TREE = 1;
+
   #----------------------------------------------------------------------
   #  sample
   #----------------------------------------------------------------------
@@ -405,26 +434,19 @@ function initialize_cygps() {
   columns_initialize("S     PID    PPID    PGID     WINPID  TTY  UID    STIME COMMAND"); # default
 }
 
-mode == "cygps" && /^[[:space:]]*PID/ {
+mode == "cygps" && /^[[:space:]]{2,}PID/ {
   columns_initialize("S" substr($0, 2));
   next;
 }
 
-function columns_getColumnByLabel(iline, label, _index) {
-  _index = columns_label2index[label];
-  if (_index == "") return "";
-  return columns_data[iline, _index];
-}
-
 function register_process(line, _pid, _ppid, _stat, _cmd, _iline) {
-  _iline=columns_register(line);
-  data_proc[iData, "i"] = columns_getColumnByLabel(_iline, "PID");
-  data_proc[iData, "p"] = columns_getColumnByLabel(_iline, "PPID");
-  data_proc[iData, "w"] = columns_getColumnByLabel(_iline, "WINPID");
-  data_proc[iData, "c"] = columns_getColumnByLabel(_iline, "COMMAND");
-  data_proc[iData, "N"] = 0;
-  dict_proc[data_proc[iData, "i"]] = iData;
-  iData++;
+  _iline = columns_register(line);
+  data_proc[_iline, "i"] = columns_getColumnByLabel(_iline, "PID");
+  data_proc[_iline, "p"] = columns_getColumnByLabel(_iline, "PPID");
+  data_proc[_iline, "w"] = columns_getColumnByLabel(_iline, "WINPID");
+  data_proc[_iline, "c"] = columns_getColumnByLabel(_iline, "COMMAND");
+  data_proc[_iline, "N"] = 0;
+  dict_proc[data_proc[_iline, "i"]] = _iline;
 }
 
 mode == "cygps" { register_process($0); next; }
@@ -433,6 +455,9 @@ mode == "cygps" { register_process($0); next; }
 # read ps outputs for mac
 
 function initialize_macps() {
+  USE_TREE = 1;
+  c2w_initialize();
+
   #----------------------------------------------------------------------
   # sample: Mac OS X
   #----------------------------------------------------------------------
@@ -465,9 +490,6 @@ function initialize_macps() {
   columns_config["ARGS", "hidden"] = 1;
   columns_config["COMMAND", "hidden"] = 1;
   columns_initialize(DFAULT_HEAD_MACOS);
-
-  USE_C2W = 1;
-  c2w_initialize();
 }
 
 mode == "macps" && /^[[:space:]]*PPID/ {
@@ -485,12 +507,11 @@ function register_process_mac(line, _iline, _ppid, _pid, _command) {
   if (_command == "")
     _command = columns_getColumnByLabel(_iline, "ARGS");
 
-  data_proc[iData, "i"] = _pid;
-  data_proc[iData, "p"] = _ppid;
-  data_proc[iData, "c"] = _command;
-  data_proc[iData, "N"] = 0;
-  dict_proc[data_proc[iData, "i"]] = iData;
-  iData++;
+  data_proc[_iline, "i"] = _pid;
+  data_proc[_iline, "p"] = _ppid;
+  data_proc[_iline, "c"] = _command;
+  data_proc[_iline, "N"] = 0;
+  dict_proc[data_proc[_iline, "i"]] = _iline;
 }
 
 mode == "macps" { register_process_mac($0); next; }
@@ -499,6 +520,8 @@ mode == "macps" { register_process_mac($0); next; }
 # read ps outputs for minix
 
 function initialize_minix() {
+  USE_TREE = 1;
+
   #----------------------------------------------------------------------
   # sample: minix
   #----------------------------------------------------------------------
@@ -528,12 +551,11 @@ function register_process_minix(line, _iline, _ppid, _pid, _command) {
   _pid = columns_data[_iline, 2];
   _command = columns_getColumnByLabel(_iline, "CMD");
 
-  data_proc[iData, "i"] = _pid;
-  data_proc[iData, "p"] = _ppid;
-  data_proc[iData, "c"] = _command;
-  data_proc[iData, "N"] = 0;
-  dict_proc[data_proc[iData, "i"]] = iData;
-  iData++;
+  data_proc[_iline, "i"] = _pid;
+  data_proc[_iline, "p"] = _ppid;
+  data_proc[_iline, "c"] = _command;
+  data_proc[_iline, "N"] = 0;
+  dict_proc[data_proc[_iline, "i"]] = _iline;
 }
 
 mode == "minix" { register_process_minix($0); next; }
@@ -547,7 +569,7 @@ function initialize_aixps() {
 
 mode == "aixps" && /^[[:space:]]*PPID/ {
   iColumnOfUser = index($0, "PPID") + 4;
-  output_header(substr($0, iColumnOfUser + 1));
+  tree_print_header(substr($0, iColumnOfUser + 1));
   next;
 }
 
@@ -567,21 +589,45 @@ function register_process_aix(line, _pid, _ppid, _stat, _cmd) {
   #0         1         2         3         4         5         6         7
   #01234567890123456789012345678901234567890123456789012345678901234567890123456789
   #----------------------------------------------------------------------
-  data_proc[iData, "i"] = trim(slice(line, 17, 24)); # PID
-  data_proc[iData, "p"] = trim(slice(line, 0, 7));   # PPID
-  data_proc[iData, "s"] = slice(line, 9, 73);        # USER-STIME
-  data_proc[iData, "c"] = slice(line, 73);           # COMMAND
-  data_proc[iData, "N"] = 0;
-  dict_proc[data_proc[iData,"i"]] = iData;
-  iData++;
+  data_proc[_iline, "i"] = trim(slice(line, 17, 24)); # PID
+  data_proc[_iline, "p"] = trim(slice(line, 0, 7));   # PPID
+  data_proc[_iline, "s"] = slice(line, 9, 73);        # USER-STIME
+  data_proc[_iline, "c"] = slice(line, 73);           # COMMAND
+  data_proc[_iline, "N"] = 0;
+  dict_proc[data_proc[_iline,"i"]] = _iline;
 }
 
 mode == "aixps" { register_process_aix($0); next; }
 
 #-------------------------------------------------------------------------------
 
-function construct_tree( _i, _ppid, _pid, _iP) {
-  for (_i = 0; _i < iData; _i++) {
+function initialize_procps() {
+  c2w_initialize();
+
+  DEFAULT_HEAD_PROCPS = "USER       PID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND";
+  columns_config["USER", "align"] = "left";
+  columns_config["TTY", "align"] = "left";
+  columns_config["STAT", "align"] = "left";
+  columns_config["TTY", "unshift"] = 1;
+  columns_initialize(DEFAULT_HEAD_PROCPS);
+}
+
+mode == "procps" && /^[[:space:]]*USER\y/ {
+  columns_initialize($0);
+  next;
+}
+
+mode == "procps" {
+  columns_register($0);
+  next;
+}
+
+mode == "pass" { print; }
+
+#-------------------------------------------------------------------------------
+
+function tree_resolve( _i, _ppid, _pid, _iP) {
+  for (_i = 0; _i < columns_nline; _i++) {
     _pid = data_proc[_i, "i"];
     _winpid = data_proc[_i, "w"];
     _ppid = data_proc[_i, "p"];
@@ -603,14 +649,14 @@ function construct_tree( _i, _ppid, _pid, _iP) {
   }
 }
 
-function output_header(line) {
+function tree_print_header(line) {
   if (flagLineColor)
     print ti_smhead substr(line txt_fill, 1, SCREEN_WIDTH) ti_rmhead;
   else
     print line;
 }
 
-function proc_get_args(iProc, _ret, _winpid, _pid) {
+function tree_getProcessArgs(iProc, _ret, _winpid, _pid) {
   _winpid = data_proc[iProc, "w"];
   _ret = data_wmic[_winpid, "a"];
   if (_ret) return _ret;
@@ -619,17 +665,17 @@ function proc_get_args(iProc, _ret, _winpid, _pid) {
   return proc_info[_pid, "a"];
 }
 
-function output_process(iProc, head, head2, _stat, _cmd, _args, _i, _iN, _line, _txtbr, _ti1, _ti2) {
+function tree_printProcess(iProc, head, head2, _stat, _cmd, _args, _i, _iN, _line, _txtbr, _ti1, _ti2) {
   _cmd = data_proc[iProc, "c"];
   if (_cmd ~ /[^\\]$/) gsub(/^.+\\/, "", _cmd);
-  _args = proc_get_args(iProc);
+  _args = tree_getProcessArgs(iProc);
   _stat = columns_count ? columns_construct(iProc) : data_proc[iProc, "s"];
   _line = _stat head _cmd _args;
   _iN = data_proc[iProc, "N"];
 
   _ti1 = "";_ti2 = "";
   if (flagLineColor) {
-    if (outputProcessCount % 2 == 1) {
+    if (tree_outputProcessCount % 2 == 1) {
       _ti1 = _ti1 ti_smodd;
       _ti2 = ti_rmodd _ti2;
     } else {
@@ -656,27 +702,39 @@ function output_process(iProc, head, head2, _stat, _cmd, _args, _i, _iN, _line, 
     print _ti1 _line _ti2;
   }
 
-  outputProcessCount++;
+  tree_outputProcessCount++;
 
   for (_i = 0; _i < _iN; _i++)
-    output_process(data_proc[iProc, "L", _i], head2 " \\_ ", head2 " " (_i + 1 == _iN ? "   " : "|  "));
+    tree_printProcess(data_proc[iProc, "L", _i], head2 " \\_ ", head2 " " (_i + 1 == _iN ? "   " : "|  "));
 }
 
-mode == "pass" { print; }
-
-END {
-  construct_tree();
+function tree_print(_, _i, _head) {
+  tree_resolve();
 
   if (columns_count) {
-    head = columns_construct("HEAD");
-    txt_indent = sprintf("%*s", length(head), "");
-    output_header(head "COMMAND");
+    _head = columns_construct("HEAD");
+    txt_indent = sprintf("%*s", length(_head), "");
+    tree_print_header(_head "COMMAND");
   }
 
-  outputProcessCount = 0;
-  for (i = 0; i < iData; i++) {
-    p = data_proc[i, "p"];
+  tree_outputProcessCount = 0;
+  for (_i = 0; _i < columns_nline; _i++) {
     if (data_proc[i, "HAS_PPID"]) continue;
-    output_process(i, "", "");
+    tree_printProcess(_i, "", "");
+  }
+}
+
+function flat_print(_i) {
+  print columns_construct("HEAD");
+  for (_i = 0; _i < columns_nline; _i++) {
+    print columns_construct(_i);
+  }
+}
+
+END {
+  if (USE_TREE) {
+    tree_print();
+  } else {
+    flat_print();
   }
 }

@@ -158,6 +158,7 @@ fi
     echo "psforest: mode=minix"
     ps el
   else
+    echo "psforest: mode=procps"
     ps uaxf
   fi
 } | gawk -f ./psforest.awk
