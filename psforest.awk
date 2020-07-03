@@ -20,6 +20,10 @@ function trim(str) {
 #------------------------------------------------------------------------------
 # wcwidth
 
+BEGIN {
+  ORD_UNICODE_MAX = 0x110000;
+}
+
 function ord_initialize(_, i) {
   for (i = 0; i < 128; i++)
     ord_cache[sprintf("%c", i)] = i;
@@ -28,7 +32,7 @@ function ord_initialize(_, i) {
 function ord(c, _, l, u, m) {
   if ((l = ord_cache[c]) != "") return l;
   l = 128;
-  u = 0x110000;
+  u = ORD_UNICODE_MAX;
   if (!(sprintf("%c", l) <= c && c <=  sprintf("%c", u - 1))) return 0xFFFD;
   while (l + 1 < u) {
     if (c < sprintf("%c", m = int((l + u) / 2))) {
@@ -42,6 +46,7 @@ function ord(c, _, l, u, m) {
 }
 
 function c2w_initialize(_, list) {
+  if (USE_C2W) return;
   USE_C2W = 1;
 
   ord_initialize();
@@ -138,6 +143,7 @@ function str2w(str) {
 }
 
 function c2w_slice(str, beg, end, _, ret, x, ml, ms, w) {
+  if (!USE_C2W) return substr(str, beg + 1, end - beg);
   ret = ""; x = 0;
   while (match(str, /^[ -~]+|^./)) {
     ml = RLENGTH;
@@ -154,7 +160,7 @@ function c2w_slice(str, beg, end, _, ret, x, ml, ms, w) {
       x += ml;
     } else {
       w = s2w(ms);
-      if (beg <= x && x + w < end)
+      if (beg <= x && x + w <= end)
         ret = ret ms;
       x += w;
     }
@@ -414,6 +420,8 @@ function columns_construct(iline, _ret, _label, _fmt, _wmax, _data) {
 
 function initialize_cygps() {
   USE_TREE = 1;
+  ORD_UNICODE_MAX = 0x10000;
+  c2w_initialize();
 
   #----------------------------------------------------------------------
   #  sample
@@ -665,7 +673,7 @@ function tree_getProcessArgs(iProc, _ret, _winpid, _pid) {
   return proc_info[_pid, "a"];
 }
 
-function tree_printProcess(iProc, head, head2, _stat, _cmd, _args, _i, _iN, _line, _txtbr, _ti1, _ti2) {
+function tree_printProcess(iProc, head, head2, _stat, _cmd, _args, _i, _iN, _line, _txtbr, _ti1, _ti2, slice1) {
   _cmd = data_proc[iProc, "c"];
   if (_cmd ~ /[^\\]$/) gsub(/^.+\\/, "", _cmd);
   _args = tree_getProcessArgs(iProc);
@@ -689,14 +697,16 @@ function tree_printProcess(iProc, head, head2, _stat, _cmd, _args, _i, _iN, _lin
   }
 
   if (flagLineWrapping) {
-    print _ti1 substr(_line txt_fill, 1, SCREEN_WIDTH) _ti2;
-    if (flagLineWrapping != "truncate" && length(_line) > SCREEN_WIDTH) {
+    slice1 = c2w_slice(_line txt_fill, 0, SCREEN_WIDTH);
+    print _ti1 slice1 _ti2;
+    if (flagLineWrapping != "truncate" && length(slice1) < length(_line)) {
       _txtbr = _iN == 0 ? "  " : " |  ";
-      _txtbr = substr(txt_indent head2 _txtbr, 1, SCREEN_WIDTH - 40)
+      _txtbr = substr(txt_indent head2 _txtbr, 1, SCREEN_WIDTH - 40);
       do {
-        _line = _txtbr substr(_line, SCREEN_WIDTH + 1);
-        print _ti1 substr(_line txt_fill, 1, SCREEN_WIDTH) _ti2;
-      } while (length(_line) > SCREEN_WIDTH);
+        _line = _txtbr substr(_line, length(slice1) + 1);
+        slice1 = c2w_slice(_line txt_fill, 0, SCREEN_WIDTH);
+        print _ti1 slice1 _ti2;
+      } while (length(slice1) < length(_line));
     }
   } else {
     print _ti1 _line _ti2;
