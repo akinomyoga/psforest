@@ -719,7 +719,7 @@ function tree_print(_, _i, _head) {
 
   tree_outputProcessCount = 0;
   for (_i = 0; _i < columns_nline; _i++) {
-    if (data_proc[i, "HAS_PPID"]) continue;
+    if (data_proc[_i, "HAS_PPID"]) continue;
     tree_printProcess(_i, "", "");
   }
 }
