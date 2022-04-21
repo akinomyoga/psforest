@@ -254,7 +254,7 @@ BEGIN {
 mode == "wmic" { sub(/\r+$/, ""); }
 
 mode == "wmic" && /^CommandLine=/ {
-  sub(/^CommandLine=("[^"]+"[[:space:]]*|[^"[:space:]]+[[:space:]]*|[[:space:]]*$)/, "", $0);
+  sub(/^CommandLine=("[^"]+"|[^"[:space:]]+|$)/, "", $0);
   args = $0;
   next;
 }
