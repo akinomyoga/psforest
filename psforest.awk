@@ -246,24 +246,31 @@ BEGIN {
 #-------------------------------------------------------------------------------
 # read wmic outputs
 
+# data_wmic[WINPID, "p"] ... Parent Windows PID
+# data_wmic[WINPID, "a"] ... arguments
+# data_wmic[WINPID, "i"] ... Cygwin PID (set by register_process_cygps)
+
+# Note: somehow there are multiple CRs at the end of line in recent Windows versions
+mode == "wmic" { sub(/\r+$/, ""); }
+
 mode == "wmic" && /^CommandLine=/ {
-  gsub(/^CommandLine=("[^"]+"|[^"[:space:]]+|\r$)|\r$/, "", $0);
+  sub(/^CommandLine=("[^"]+"[[:space:]]*|[^"[:space:]]+[[:space:]]*|[[:space:]]*$)/, "", $0);
   args = $0;
   next;
 }
 
 mode == "wmic" && /^ParentProcessId=/ {
-  gsub(/^ParentProcessId=|\r$/, "", $0);
+  sub(/^ParentProcessId=/, "", $0);
   ppid = $0;
   next;
 }
 
 mode == "wmic" && /^ProcessId=/ {
-  gsub(/^ProcessId=|\r$/, "", $0);
+  sub(/^ProcessId=/, "", $0);
   winpid = $0;
-  data_wmic[winpid,"p"] = ppid;
-  data_wmic[winpid,"a"] = args;
-  #print winpid, ppid, substr(args, 1, 40)
+  data_wmic[winpid, "p"] = ppid;
+  data_wmic[winpid, "a"] = args;
+  #print winpid, ppid, "[" substr(args, 1, 40) "]";
   next;
 }
 
@@ -447,7 +454,7 @@ mode == "cygps" && /^[[:space:]]{2,}PID/ {
   next;
 }
 
-function register_process(line, _pid, _ppid, _stat, _cmd, _iline) {
+function register_process_cygps(line, _pid, _ppid, _stat, _cmd, _iline) {
   _iline = columns_register(line);
   data_proc[_iline, "i"] = columns_getColumnByLabel(_iline, "PID");
   data_proc[_iline, "p"] = columns_getColumnByLabel(_iline, "PPID");
@@ -455,9 +462,12 @@ function register_process(line, _pid, _ppid, _stat, _cmd, _iline) {
   data_proc[_iline, "c"] = columns_getColumnByLabel(_iline, "COMMAND");
   data_proc[_iline, "N"] = 0;
   dict_proc[data_proc[_iline, "i"]] = _iline;
+
+  # WINPID to Cygwin PID
+  data_wmic[data_proc[_iline, "w"], "i"] = data_proc[_iline, "i"];
 }
 
-mode == "cygps" { register_process($0); next; }
+mode == "cygps" { register_process_cygps($0); next; }
 
 #-------------------------------------------------------------------------------
 # read ps outputs for mac
@@ -645,8 +655,12 @@ function tree_resolve( _i, _ppid, _pid, _iP) {
       data_proc[_i, "<defunct>"] = 1;
 
     # resolve ppid
-    if ((_ppid == "0" || _ppid == "1") && data_wmic[_winpid, "p"])
+    if ((_ppid == "0" || _ppid == "1") && data_wmic[_winpid, "p"]) {
       _ppid = data_wmic[_winpid, "p"];
+
+      # convert Windows PPID to Cygwin PPID
+      if (data_wmic[_ppid, "i"]) _ppid = data_wmic[_ppid, "i"];
+    }
     if (_ppid == _pid) continue;
 
     _iP = dict_proc[_ppid];
